@@ -62,6 +62,6 @@ class Robot:
 
     def inverse_kinematics(self, target_position, target_orientation, environment=None, mirror=False, debug=False):
         fabrik = Fabrik(robot=self, target_position=target_position, target_orientation=target_orientation)
-        fabrik.solve(debug=debug)
+        fabrik.solve(debug=debug, mirror=mirror)
         if fabrik.solved:
             fabrik.plot(environment=environment, mirror=mirror)

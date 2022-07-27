@@ -20,7 +20,7 @@ class Fabrik:
         self.max_iterations = max_iterations
         self.solved = False
 
-    def solve(self, debug=False):
+    def solve(self, debug=False, mirror=False):
         iterations = 0
         valid_target = False
         total_robot_length = sum(self.robot.link_lengths)
@@ -132,25 +132,27 @@ class Fabrik:
                 self.check_link_lengths(self.robot.vertices)
                 print("\nVertices: ")
                 print(self.robot.vertices)
-                self.mirrored_elbows()
 
             else:
-                self.mirrored_elbows()
                 print("Final robot configuration:")
                 print(self.robot.vertices)
-                print(self.robot.mirrored_vertices)
+                if mirror:
+                    self.mirrored_elbows()
+                    print(self.robot.mirrored_vertices)
                 print("Final joint angles:")
                 self.robot.joint_configuration = self.calculate_joint_angles(self.robot.vertices)
                 print(self.robot.joint_configuration)
-                self.robot.mirrored_joint_configuration= self.calculate_joint_angles(self.robot.mirrored_vertices)
-                print(self.robot.mirrored_joint_configuration)
+                if mirror:
+                    self.robot.mirrored_joint_configuration= self.calculate_joint_angles(self.robot.mirrored_vertices)
+                    print(self.robot.mirrored_joint_configuration)
 
                 if debug:
                     print("\nPrinting lengths for debugging...")
                     print("\nRobot link lengths:")
                     self.check_link_lengths(self.robot.vertices)
-                    print("\nRobot link lengths (mirrored vertices):")
-                    self.check_link_lengths(self.robot.mirrored_vertices)
+                    if mirror:
+                        print("\nRobot link lengths (mirrored vertices):")
+                        self.check_link_lengths(self.robot.mirrored_vertices)
                 self.solved = True
         return self.robot.vertices
 
