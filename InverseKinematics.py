@@ -4,6 +4,8 @@ from PIL import Image
 import copy
 
 from DrawEnvironment import draw_environment
+from helper_functions.helper_functions import calculate_joint_angles
+
 
 class Fabrik:
     def __init__(self, robot,
@@ -20,7 +22,7 @@ class Fabrik:
         self.max_iterations = max_iterations
         self.solved = False
 
-    def solve(self, debug=False):
+    def solve(self, debug=False, mirror=False):
         iterations = 0
         valid_target = False
         total_robot_length = sum(self.robot.link_lengths)
@@ -132,25 +134,27 @@ class Fabrik:
                 self.check_link_lengths(self.robot.vertices)
                 print("\nVertices: ")
                 print(self.robot.vertices)
-                self.mirrored_elbows()
 
             else:
-                self.mirrored_elbows()
                 print("Final robot configuration:")
                 print(self.robot.vertices)
-                print(self.robot.mirrored_vertices)
+                if mirror:
+                    self.mirrored_elbows()
+                    print(self.robot.mirrored_vertices)
                 print("Final joint angles:")
-                self.robot.joint_configuration = self.calculate_joint_angles(self.robot.vertices)
+                self.robot.joint_configuration = calculate_joint_angles(self.robot.vertices)
                 print(self.robot.joint_configuration)
-                self.robot.mirrored_joint_configuration= self.calculate_joint_angles(self.robot.mirrored_vertices)
-                print(self.robot.mirrored_joint_configuration)
+                if mirror:
+                    self.robot.mirrored_joint_configuration = calculate_joint_angles(self.robot.mirrored_vertices)
+                    print(self.robot.mirrored_joint_configuration)
 
                 if debug:
                     print("\nPrinting lengths for debugging...")
                     print("\nRobot link lengths:")
                     self.check_link_lengths(self.robot.vertices)
-                    print("\nRobot link lengths (mirrored vertices):")
-                    self.check_link_lengths(self.robot.mirrored_vertices)
+                    if mirror:
+                        print("\nRobot link lengths (mirrored vertices):")
+                        self.check_link_lengths(self.robot.mirrored_vertices)
                 self.solved = True
         return self.robot.vertices
 
@@ -197,26 +201,6 @@ class Fabrik:
             self.robot.mirrored_vertices["y"][vertex_index] = new_vertex[1]
 
         return self.robot.mirrored_vertices
-
-    def calculate_joint_angles(self, vertices):
-        joint_angles = [0]*(len(vertices["x"]) - 1)
-        old_direction_vector = [1, 0]
-        if self.linear_base:
-            start_vertex_index = 1
-        else:
-            start_vertex_index = 0
-        last_vertex_index = len(vertices["x"]) - 1
-        for vertex_index in range(start_vertex_index, last_vertex_index):
-            vertex = [vertices["x"][vertex_index], vertices["y"][vertex_index]]
-            vertex_ahead = [vertices["x"][vertex_index + 1], vertices["y"][vertex_index + 1]]
-            new_direction_vector = np.subtract(vertex_ahead, vertex)
-            new_direction_vector = new_direction_vector / self.robot.link_lengths[vertex_index]
-            direction_cosine = np.dot(new_direction_vector, old_direction_vector)
-            joint_angle = np.arccos(direction_cosine)
-            joint_angles[vertex_index] = joint_angle
-            old_direction_vector = new_direction_vector
-
-        return joint_angles
 
     def plot(self, environment = None, mirror = False, collision_checking = False):
         vertices = self.robot.vertices

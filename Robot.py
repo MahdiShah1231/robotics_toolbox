@@ -1,6 +1,7 @@
 import numpy as np
 
 from InverseKinematics import Fabrik
+from helper_functions.helper_functions import calculate_joint_angles
 
 
 class Robot:
@@ -48,6 +49,8 @@ class Robot:
             self.link_number = len(self.link_lengths)
             self.vertices["x"].insert(0, self.robot_base_origin[0])
             self.vertices["y"].insert(0, self.robot_base_origin[1])
+        if self.joint_configuration is None:
+            self.joint_configuration = calculate_joint_angles(self.vertices)
 
     def __is_foldable(self):
         foldable = True
@@ -62,6 +65,6 @@ class Robot:
 
     def inverse_kinematics(self, target_position, target_orientation, environment=None, mirror=False, debug=False):
         fabrik = Fabrik(robot=self, target_position=target_position, target_orientation=target_orientation)
-        fabrik.solve(debug=debug)
+        fabrik.solve(debug=debug, mirror=mirror)
         if fabrik.solved:
             fabrik.plot(environment=environment, mirror=mirror)
