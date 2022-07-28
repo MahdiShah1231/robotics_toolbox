@@ -24,4 +24,4 @@ def forward_kinematics():
 
 if __name__ == '__main__':
     r = create_robot(link_lengths=[0.4, 0.3, 0.2], ik_alg=Fabrik, robot_base_radius=0.1, linear_base=False)
-    inverse_kinematics(r, [0.6, 0.6], np.pi / 2, environment=None, mirror=True, debug=False)
+    inverse_kinematics(robot=r, target_position=[0.6, 0.6], target_orientation=np.pi / 2, environment=None, mirror=True, debug=False)
