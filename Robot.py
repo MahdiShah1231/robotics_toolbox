@@ -1,7 +1,8 @@
 import numpy as np
 
 from InverseKinematics import Fabrik
-from helper_functions.helper_functions import calculate_joint_angles
+from ForwardKinematics import ForwardKinematics
+from helper_functions.helper_functions import calculate_joint_angles, wrap_angles_to_pi
 
 
 class Robot:
@@ -37,6 +38,8 @@ class Robot:
         else:
             assert len(joint_configuration) == len(link_lengths), f'Number of joint angles ({len(joint_configuration)}), ' \
                                                                   f'does not equal number of links ({len(link_lengths)})'
+
+            self.joint_configuration = wrap_angles_to_pi(self.joint_configuration)
             for vertex_number in range(1, len(x_vertices)):
                 x_vertices[vertex_number] = x_vertices[vertex_number-1] + self.link_lengths[vertex_number-1]*np.cos(self.joint_configuration[vertex_number-1])
                 y_vertices[vertex_number] = y_vertices[vertex_number-1] + self.link_lengths[vertex_number-1]*np.sin(self.joint_configuration[vertex_number-1])
@@ -64,7 +67,14 @@ class Robot:
         return foldable
 
     def inverse_kinematics(self, target_position, target_orientation, environment=None, mirror=False, debug=False):
-        fabrik = Fabrik(robot=self, target_position=target_position, target_orientation=target_orientation)
-        fabrik.solve(debug=debug, mirror=mirror)
-        if fabrik.solved:
-            fabrik.plot(environment=environment, mirror=mirror)
+        ik = self.ik_alg(robot=self, target_position=target_position, target_orientation=target_orientation)
+        ik.solve(debug=debug, mirror=mirror)
+        if ik.solved:
+            ik.plot(environment=environment, mirror=mirror)
+
+    def forward_kinematics(self, target_configuration):
+        fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
+        fk.forward_kinematics()
+
+
+

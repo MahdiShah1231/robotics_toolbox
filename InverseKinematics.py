@@ -4,7 +4,7 @@ from PIL import Image
 import copy
 
 from DrawEnvironment import draw_environment
-from helper_functions.helper_functions import calculate_joint_angles
+from helper_functions.helper_functions import calculate_joint_angles, wrap_angle_to_pi
 
 
 class Fabrik:
@@ -17,7 +17,7 @@ class Fabrik:
         self.linear_base = robot.linear_base
         scaled_target = [coordinate*1000 for coordinate in target_position]
         self.target_position = scaled_target
-        self.target_orientation = target_orientation
+        self.target_orientation = wrap_angle_to_pi(target_orientation)
         self.error_tolerance = error_tolerance
         self.max_iterations = max_iterations
         self.solved = False
