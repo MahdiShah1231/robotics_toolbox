@@ -2,11 +2,6 @@ import numpy as np
 from helper_functions.helper_functions import calculate_joint_angles, wrap_angles_to_pi
 
 
-# Remove DH params, if the robots already been created then we don't need to do any extra things?
-
-# In forward kinematics mode, cant control the linear base, only enter link configs. therefore len(targ) = len(joint_config)-1 if linear base is on
-
-
 class ForwardKinematics:
     def __init__(self, robot, target_configuration):
         self.robot = robot

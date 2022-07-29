@@ -40,9 +40,11 @@ class Robot:
                                                                   f'does not equal number of links ({len(link_lengths)})'
 
             self.joint_configuration = wrap_angles_to_pi(self.joint_configuration)
+            reference_angle = 0
             for vertex_number in range(1, len(x_vertices)):
-                x_vertices[vertex_number] = x_vertices[vertex_number-1] + self.link_lengths[vertex_number-1]*np.cos(self.joint_configuration[vertex_number-1])
-                y_vertices[vertex_number] = y_vertices[vertex_number-1] + self.link_lengths[vertex_number-1]*np.sin(self.joint_configuration[vertex_number-1])
+                x_vertices[vertex_number] = x_vertices[vertex_number-1] + self.link_lengths[vertex_number-1]*np.cos(self.joint_configuration[vertex_number-1] + reference_angle)
+                y_vertices[vertex_number] = y_vertices[vertex_number-1] + self.link_lengths[vertex_number-1]*np.sin(self.joint_configuration[vertex_number-1] + reference_angle)
+                reference_angle += self.joint_configuration[vertex_number-1]
 
         offset_x_vertices = [x+self.robot_base_origin[0] for x in x_vertices]
         self.vertices = {"x": offset_x_vertices, "y": y_vertices}
