@@ -1,10 +1,6 @@
-import matplotlib.pyplot as plt
-import numpy as np
-from PIL import Image
 import copy
-
-from DrawEnvironment import draw_environment
-from helper_functions.helper_functions import calculate_joint_angles
+import numpy as np
+from helper_functions.helper_functions import calculate_joint_angles, wrap_angle_to_pi, check_link_lengths
 
 
 class Fabrik:
@@ -17,7 +13,7 @@ class Fabrik:
         self.linear_base = robot.linear_base
         scaled_target = [coordinate*1000 for coordinate in target_position]
         self.target_position = scaled_target
-        self.target_orientation = target_orientation
+        self.target_orientation = wrap_angle_to_pi(target_orientation)
         self.error_tolerance = error_tolerance
         self.max_iterations = max_iterations
         self.solved = False
@@ -131,7 +127,7 @@ class Fabrik:
                 print("Could not solve.")
                 print(f"error: {error}\n")
                 print("Computed link lengths: ")
-                self.check_link_lengths(self.robot.vertices)
+                check_link_lengths(link_lengths=self.robot.link_lengths, vertices=self.robot.vertices)
                 print("\nVertices: ")
                 print(self.robot.vertices)
 
@@ -151,21 +147,12 @@ class Fabrik:
                 if debug:
                     print("\nPrinting lengths for debugging...")
                     print("\nRobot link lengths:")
-                    self.check_link_lengths(self.robot.vertices)
+                    check_link_lengths(link_lengths=self.robot.link_lengths, vertices=self.robot.vertices)
                     if mirror:
                         print("\nRobot link lengths (mirrored vertices):")
-                        self.check_link_lengths(self.robot.mirrored_vertices)
+                        check_link_lengths(link_lengths=self.robot.link_lengths, vertices=self.robot.mirrored_vertices)
                 self.solved = True
         return self.robot.vertices
-
-    def check_link_lengths(self, vertices):
-        for i in range(len(vertices["x"]) - 1):  # Checking always forward
-            link_length = self.robot.link_lengths[i]
-            behind_vertex = [vertices["x"][i], vertices["y"][i]]
-            ahead_vertex = [vertices["x"][i + 1], vertices["y"][i + 1]]
-            dir_vec = np.subtract(ahead_vertex, behind_vertex)
-            new_link_length = np.linalg.norm(dir_vec)
-            print(link_length, new_link_length)
 
     def mirrored_elbows(self):
         self.robot.mirrored_vertices = copy.deepcopy(self.robot.vertices)
@@ -201,48 +188,6 @@ class Fabrik:
             self.robot.mirrored_vertices["y"][vertex_index] = new_vertex[1]
 
         return self.robot.mirrored_vertices
-
-    def plot(self, environment = None, mirror = False, collision_checking = False):
-        vertices = self.robot.vertices
-        mirrored_vertices = self.robot.mirrored_vertices
-
-        if environment is None:
-            draw_environment()
-        else:
-            if type(environment) == str:
-                try:
-                    environment_img = Image.open(environment)
-                    plt.imshow(environment_img)
-                except:
-                    raise "Environment error, please ensure environment is a valid .ppm file in the directory"
-                else:
-                    y_vertices_in_img_frame = [-(y - 850) for y in vertices["y"]]
-                    vertices["y"] = y_vertices_in_img_frame
-
-            elif type(environment) == list:
-                assert len(environment) == 2, "Environment list must have two elements, [env_width, env_height]"
-                draw_environment(environment[0], environment[1], self.robot.robot_base_radius)
-
-        if self.linear_base is False:
-            robot_base_origin = (self.robot.robot_base_radius, 0)
-            plt.plot(vertices["x"], vertices["y"], 'go-')
-            if mirror:
-                plt.plot(mirrored_vertices["x"], mirrored_vertices["y"], 'ro-')
-        else:
-            robot_base_origin = (vertices["x"][1], vertices["y"][1])
-            plt.plot(vertices["x"][0:2], vertices["y"][0:2], 'bo--')
-            plt.plot(vertices["x"][1:], vertices["y"][1:], 'go-')
-            if mirror:
-                if self.target_orientation is None:
-                    plt.plot(mirrored_vertices["x"][1:], mirrored_vertices["y"][1:], 'ro-')
-                else:
-                    plt.plot(mirrored_vertices["x"][1:-1], mirrored_vertices["y"][1:-1], 'ro-')
-
-        base = plt.Circle(robot_base_origin, self.robot.robot_base_radius, color="green")
-        plt.gcf().gca().add_artist(base)
-        plt.axis('image')
-        plt.show()
-
 
     def check_collisions(self):
         robot_points = list(zip(self.robot.vertices["x"], self.robot.vertices["y"]))
