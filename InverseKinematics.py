@@ -11,8 +11,7 @@ class Fabrik:
                  max_iterations=100000):
         self.robot = robot
         self.linear_base = robot.linear_base
-        scaled_target = [coordinate*1000 for coordinate in target_position]
-        self.target_position = scaled_target
+        self.target_position = list(map(lambda x: x * 1000, target_position))  # Scaling target from m to mm
         self.target_orientation = wrap_angle_to_pi(target_orientation)
         self.error_tolerance = error_tolerance
         self.max_iterations = max_iterations
@@ -55,14 +54,14 @@ class Fabrik:
                 iterations +=1
                 if self.linear_base is False:
                     if self.target_orientation is None:  # Must set n links
-                        number_unset_links = self.robot.link_number
+                        number_unset_links = self.robot.n_links
                     else:  # Must set n-1 links, last set with correct orientation
-                        number_unset_links = self.robot.link_number - 1
+                        number_unset_links = self.robot.n_links - 1
                 else:
                     if self.target_orientation is None:  # Must set n links
-                        number_unset_links = self.robot.link_number - 1
+                        number_unset_links = self.robot.n_links - 1
                     else:  # Must set n-2 links, last set with correct orientation and first set with correct orientation
-                        number_unset_links = self.robot.link_number - 2
+                        number_unset_links = self.robot.n_links - 2
                 if iterations %2 != 0:
                     self.robot.vertices["x"][-1] = self.target_position[0]
                     self.robot.vertices["y"][-1] = self.target_position[1]
@@ -135,7 +134,7 @@ class Fabrik:
                 print("Final robot configuration:")
                 print(self.robot.vertices)
                 if mirror:
-                    self.mirrored_elbows()
+                    self.__mirrored_elbows()
                     print(self.robot.mirrored_vertices)
                 print("Final joint angles:")
                 self.robot.joint_configuration = calculate_joint_angles(self.robot.vertices)
@@ -154,7 +153,7 @@ class Fabrik:
                 self.solved = True
         return self.robot.vertices
 
-    def mirrored_elbows(self):
+    def __mirrored_elbows(self):
         self.robot.mirrored_vertices = copy.deepcopy(self.robot.vertices)
         if self.linear_base:
             start = [self.robot.mirrored_vertices["x"][1], self.robot.mirrored_vertices["y"][1]]

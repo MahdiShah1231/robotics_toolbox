@@ -17,20 +17,27 @@ def calculate_joint_angles(vertices):
         old_direction_vector = new_direction_vector
     return joint_angles
 
+
 def wrap_angle_to_pi(angle):
-    if angle > np.pi:
-        wrap_count = angle // (np.pi)
-        if wrap_count % 2 == 0:
-            wrapped_angle = (angle - (np.pi * wrap_count))
+    if angle is not None:
+        if angle > np.pi:
+            wrap_count = angle // (np.pi)
+            if wrap_count % 2 == 0:
+                wrapped_angle = (angle - (np.pi * wrap_count))
+            else:
+                wrapped_angle = (angle - (np.pi * wrap_count)) - np.pi
         else:
-            wrapped_angle = (angle - (np.pi * wrap_count)) - np.pi
+            wrapped_angle = angle
     else:
         wrapped_angle = angle
     return wrapped_angle
 
 
 def wrap_angles_to_pi(angles):
-    wrapped_angles = list(map(wrap_angle_to_pi, angles))
+    if angles is not None:
+        wrapped_angles = list(map(wrap_angle_to_pi, angles))
+    else:
+        wrapped_angles = None
     return wrapped_angles
 
 
