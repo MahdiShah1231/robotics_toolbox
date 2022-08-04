@@ -30,15 +30,14 @@ class Robot:
         if ik_alg is None:
             self.ik_alg = Fabrik
 
+        # Shifting vertices to origin of robot base
+        self.vertices["x"] = list(map(lambda x: x + self.robot_base_radius, self.vertices["x"]))
+
         if self.linear_base:
             self.link_lengths.insert(0, 0)
             self.n_links = len(self.link_lengths)
             self.vertices["x"].insert(0, self.robot_base_origin[0])
             self.vertices["y"].insert(0, self.robot_base_origin[1])
-
-        # Shifting vertices to origin of robot base
-        offset_x_vertices = list(map(lambda x: x + self.robot_base_radius, self.vertices["x"]))
-        self.vertices["x"] = offset_x_vertices
 
         if joint_configuration is None:
             foldable = self.__is_foldable()
@@ -48,7 +47,7 @@ class Robot:
                 n_arm_links = self.n_links
 
             if foldable:
-                joint_configuration = [((-1)**i) * np.pi for i in range(n_arm_links - 1)]
+                joint_configuration = list(map(lambda x: ((-1) ** x) * np.pi, range(n_arm_links - 1)))
                 joint_configuration.insert(0, 0)  # First joint outstretched
             else:
                 joint_configuration = [0] * n_arm_links
@@ -99,23 +98,27 @@ class Robot:
         if self.linear_base is False:
             robot_base_origin = self.robot_base_origin
             plt.plot(vertices["x"], vertices["y"], 'go-')
+            mirror_start_index = 0
         else:
             robot_base_origin = (vertices["x"][1], vertices["y"][1])
             plt.plot(vertices["x"][0:2], vertices["y"][0:2], 'bo--')
             plt.plot(vertices["x"][1:], vertices["y"][1:], 'go-')
+            mirror_start_index = 1
 
         if mirror:
             if target_orientation is None:
-                plt.plot(mirrored_vertices["x"][1:], mirrored_vertices["y"][1:], 'ro-')
+                plt.plot(mirrored_vertices["x"][mirror_start_index:],
+                         mirrored_vertices["y"][mirror_start_index:], 'ro-')
             else:
-                plt.plot(mirrored_vertices["x"][1:-1], mirrored_vertices["y"][1:-1], 'ro-')
+                plt.plot(mirrored_vertices["x"][mirror_start_index:-1],
+                         mirrored_vertices["y"][mirror_start_index:-1], 'ro-')
 
         base = plt.Circle(robot_base_origin, self.robot_base_radius, color="green")
         plt.gcf().gca().add_artist(base)
         plt.axis('image')
         plt.show()
 
-    def inverse_kinematics(self, target_position, target_orientation, mirror=False, debug=False):
+    def inverse_kinematics(self, target_position, target_orientation, mirror=True, debug=False):
         ik = self.ik_alg(robot=self, target_position=target_position, target_orientation=target_orientation)
         ik.solve(debug=debug, mirror=mirror)
         if ik.solved:
