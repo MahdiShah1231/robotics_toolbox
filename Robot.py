@@ -13,49 +13,52 @@ class Robot:
                  robot_base_radius=None,
                  linear_base=False,
                  environment=None):
-        self.link_lengths = list(map(lambda x: x * 1000, link_lengths))  # Scaling links from m to mm
-        self.ik_alg = ik_alg
+        self.__link_lengths = list(map(lambda x: x * 1000, link_lengths))  # Scaling links from m to mm
+        self.__ik_alg = ik_alg if ik_alg is not None else Fabrik
         self.joint_configuration = wrap_angles_to_pi(joint_configuration)
-        self.robot_base_radius = robot_base_radius * 1000  # Scaling radius from m to mm
-        self.linear_base = linear_base
-        self.environment = environment
+        self.__robot_base_radius = robot_base_radius * 1000  # Scaling radius from m to mm
+        self.__linear_base = linear_base
+        self.__environment = environment
 
-        self.n_links = len(link_lengths)
-        self.vertices = {"x": [0] * (self.n_links + 1), "y": [0] * (self.n_links + 1)}
-        self.robot_base_origin = [self.robot_base_radius, 0]
+        # Generated attributes
+        self.__robot_base_origin = [self.robot_base_radius, 0]
+        self.__n_links = len(link_lengths)
+        self.vertices = {"x": [0] * (self.n_links + 1) ,"y": [0] * (self.n_links + 1)}
+        self.vertices["x"] = list(map(lambda x: x + self.robot_base_radius, self.vertices["x"]))
         self.mirrored_joint_configuration = None
         self.mirrored_vertices = None
         self.collisions = False
 
-        if ik_alg is None:
-            self.ik_alg = Fabrik
+        # Initial robot configuration
+        self.__configure_robot()
 
-        # Shifting vertices to origin of robot base
-        self.vertices["x"] = list(map(lambda x: x + self.robot_base_radius, self.vertices["x"]))
+    @property
+    def link_lengths(self):
+        return self.__link_lengths
 
-        if self.linear_base:
-            self.link_lengths.insert(0, 0)
-            self.n_links = len(self.link_lengths)
-            self.vertices["x"].insert(0, self.robot_base_origin[0])
-            self.vertices["y"].insert(0, self.robot_base_origin[1])
+    @property
+    def ik_alg(self):
+        return self.__ik_alg
 
-        if joint_configuration is None:
-            foldable = self.__is_foldable()
-            if self.linear_base:
-                n_arm_links = self.n_links - 1  # Excluding linear base prismatic link
-            else:
-                n_arm_links = self.n_links
+    @property
+    def robot_base_radius(self):
+        return self.__robot_base_radius
 
-            if foldable:
-                joint_configuration = list(map(lambda x: ((-1) ** x) * np.pi, range(n_arm_links - 1)))
-                joint_configuration.insert(0, 0)  # First joint outstretched
-            else:
-                joint_configuration = [0] * n_arm_links
-            self.joint_configuration = joint_configuration
-        else:
-            assert len(joint_configuration) == len(link_lengths), f'Number of joint angles ({len(joint_configuration)}), ' \
-                                                                  f'does not equal number of links ({len(link_lengths)})'
-        self.forward_kinematics(target_configuration=joint_configuration, initialise=True, plot=False)
+    @property
+    def linear_base(self):
+        return self.__linear_base
+
+    @property
+    def environment(self):
+        return self.__environment
+
+    @property
+    def n_links(self):
+        return self.__n_links
+
+    @property
+    def robot_base_origin(self):
+        return self.__robot_base_origin
 
     def __is_foldable(self):
         foldable = True
@@ -72,6 +75,33 @@ class Robot:
                 foldable = False
             link_index += 1
         return foldable
+
+    def __configure_robot(self):
+        if self.linear_base:
+            self.__link_lengths.insert(0, 0)
+            self.__n_links = len(self.link_lengths)
+            self.vertices["x"].insert(0, self.robot_base_origin[0])
+            self.vertices["y"].insert(0, self.robot_base_origin[1])
+
+        if self.joint_configuration is None:
+            foldable = self.__is_foldable()
+            if self.linear_base:
+                n_arm_links = self.n_links - 1  # Excluding linear base prismatic link
+            else:
+                n_arm_links = self.n_links
+
+            if foldable:
+                joint_configuration = list(map(lambda x: ((-1) ** x) * np.pi, range(n_arm_links - 1)))
+                joint_configuration.insert(0, 0)  # First joint outstretched
+            else:
+                joint_configuration = [0] * n_arm_links
+
+            self.joint_configuration = joint_configuration
+        else:
+            assert len(self.joint_configuration) == len(
+                self.link_lengths), f'Number of joint angles ({len(self.joint_configuration)}), ' \
+                               f'does not equal number of links ({len(self.link_lengths)})'
+        self.forward_kinematics(target_configuration=self.joint_configuration, initialise=True, plot=False)
 
     def __plot(self, mirror=False, target_orientation=False):
         vertices = self.vertices
