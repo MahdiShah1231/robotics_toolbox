@@ -5,6 +5,7 @@ from InverseKinematics import Fabrik
 from ForwardKinematics import ForwardKinematics
 from helper_functions.helper_functions import wrap_angles_to_pi, draw_environment
 
+SCALE_TO_MM = 1000
 
 class Robot:
     def __init__(self, link_lengths,
@@ -13,17 +14,17 @@ class Robot:
                  robot_base_radius=None,
                  linear_base=False,
                  environment=None):
-        self.__link_lengths = list(map(lambda x: x * 1000, link_lengths))  # Scaling links from m to mm
+        self.__link_lengths = list(map(lambda x: x * SCALE_TO_MM, link_lengths))  # Scaling links from m to mm
         self.__ik_alg = ik_alg if ik_alg is not None else Fabrik
         self.joint_configuration = wrap_angles_to_pi(joint_configuration)
-        self.__robot_base_radius = robot_base_radius * 1000  # Scaling radius from m to mm
+        self.__robot_base_radius = robot_base_radius * SCALE_TO_MM  # Scaling radius from m to mm
         self.__linear_base = linear_base
         self.__environment = environment
 
         # Generated attributes
         self.__robot_base_origin = [self.robot_base_radius, 0]
         self.__n_links = len(link_lengths)
-        self.vertices = {"x": [0] * (self.n_links + 1) ,"y": [0] * (self.n_links + 1)}
+        self.vertices = {"x": [0] * (self.n_links + 1), "y": [0] * (self.n_links + 1)}
         self.vertices["x"] = list(map(lambda x: x + self.robot_base_radius, self.vertices["x"]))
         self.mirrored_joint_configuration = None
         self.mirrored_vertices = None
