@@ -66,3 +66,15 @@ def check_link_lengths(link_lengths, vertices):
         dir_vec = np.subtract(ahead_vertex, behind_vertex)
         new_link_length = np.linalg.norm(dir_vec)
         print(link_length, new_link_length)
+
+def validate_target(target, linear_base, robot_length):
+    valid_target = False
+    if linear_base:  # Linear base allows free movement along x-axis so only y distance matters.
+        effective_target_distance = abs(target[1])
+    else:
+        effective_target_distance = abs(np.linalg.norm(target))
+
+    if effective_target_distance < robot_length:
+        valid_target = True
+
+    return valid_target, effective_target_distance

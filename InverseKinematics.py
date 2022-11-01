@@ -1,7 +1,9 @@
 import copy
 import numpy as np
-from helper_functions.helper_functions import calculate_joint_angles, wrap_angle_to_pi, check_link_lengths
+from helper_functions.helper_functions import calculate_joint_angles, wrap_angle_to_pi, check_link_lengths, \
+    validate_target
 
+SCALE_TO_MM = 1000
 
 class Fabrik:
     def __init__(self, robot,
@@ -10,7 +12,7 @@ class Fabrik:
                  error_tolerance=0.000001,
                  max_iterations=100000):
         self.__robot = robot
-        self.__target_position = list(map(lambda x: x * 1000, target_position))  # Scaling target from m to mm
+        self.__target_position = list(map(lambda x: x * SCALE_TO_MM, target_position))  # Scaling target from m to mm
         self.__target_orientation = wrap_angle_to_pi(target_orientation)
         self.__effective_target_distance = None
         self.__total_robot_length = sum(self.__robot.link_lengths)
@@ -20,10 +22,12 @@ class Fabrik:
 
     def solve(self, debug=False, mirror=False):
         iterations = 0
-        valid_target = self.__validate_target()
+        valid_target, effective_target_distance = validate_target(target=self.__target_position,
+                                                                  linear_base=self.__robot.linear_base,
+                                                                  robot_length=self.__total_robot_length)
         if not valid_target:
             print("Could not solve. Target outside of robot range")
-            print(f"target distance = {self.effective_target_distance}, robot max reach = {self.__total_robot_length}")
+            print(f"target distance = {effective_target_distance}, robot max reach = {self.__total_robot_length}")
             print("\nChoose a valid target or link lengths")
 
         else:
@@ -36,8 +40,9 @@ class Fabrik:
             else:  # Target is the second last vertex position
                 ee_position_actual = [self.__robot.vertices["x"][-2],
                                       self.__robot.vertices["y"][-2]]
-                last_link_orientation = np.around([np.cos(self.__target_orientation), np.sin(self.__target_orientation)], decimals=5)
-                oriented_last_link = list(map(lambda x: x * self.__robot.link_lengths[-1], last_link_orientation))
+                last_link_orientation = np.around([np.cos(self.__target_orientation),
+                                                   np.sin(self.__target_orientation)], decimals=5)
+                oriented_last_link = list(map(lambda i: i * self.__robot.link_lengths[-1], last_link_orientation))
                 ee_position_target = np.subtract(self.__target_position, oriented_last_link)
                 ee_vertex_index = -2
 
@@ -48,26 +53,31 @@ class Fabrik:
                 start_link_idx = 0
                 if self.__target_orientation is None:  # Must set n links
                     n_unset_links = self.__robot.n_links
-                else:  # Must set n-1 links, last link already set with correct orientation
+                else:
+                    # Must set n-1 links, last link already set with correct orientation
                     n_unset_links = self.__robot.n_links - 1
-                loop_end = n_unset_links
+                last_link_idx = n_unset_links
             else:
                 start_link_idx = 1
                 if self.__target_orientation is None:  # Must set n - 1 links
                     n_unset_links = self.__robot.n_links - 1
-                else:  # Must set n-2 links, last set with correct orientation and first set with correct orientation
+                else:
+                    # Must set n-2 links, last set with correct orientation and
+                    # first set with correct orientation (prismatic base)
                     n_unset_links = self.__robot.n_links - 2
-                loop_end = n_unset_links + 1
+                last_link_idx = n_unset_links + 1
 
             while error > self.__error_tolerance and iterations < self.__max_iterations:
                 iterations += 1
                 if iterations % 2 != 0:  # Odd iteration = backward iteration
                     self.__robot.vertices["x"][-1] = self.__target_position[0]
                     self.__robot.vertices["y"][-1] = self.__target_position[1]
+
                     if self.__target_orientation is not None:
                         self.__robot.vertices["x"][-2] = self.__robot.vertices["x"][-1] - oriented_last_link[0]
                         self.__robot.vertices["y"][-2] = self.__robot.vertices["y"][-1] - oriented_last_link[1]
-                    for vertex_index in reversed(range(start_link_idx, loop_end)):
+
+                    for vertex_index in reversed(range(start_link_idx, last_link_idx)):
                         link_length = self.__robot.link_lengths[vertex_index]
                         behind_vertex = [self.__robot.vertices["x"][vertex_index + 1],
                                          self.__robot.vertices["y"][vertex_index + 1]]
@@ -81,22 +91,24 @@ class Fabrik:
                         self.__robot.vertices["y"][vertex_index] = new_vertex_y
 
                     if self.__robot.linear_base:
-                        error_vector = np.subtract([self.__robot.vertices["x"][1],
-                                                    self.__robot.vertices["y"][1]], [self.__robot.vertices["x"][1], 0])
-                        base_offset_vec = np.subtract([self.__robot.vertices["x"][1],
-                                                       self.__robot.vertices["y"][1]], self.__robot.robot_base_origin)
+                        error_vector = np.subtract([self.__robot.vertices["x"][1], self.__robot.vertices["y"][1]],
+                                                   [self.__robot.vertices["x"][1], 0])
+                        base_offset_vec = np.subtract([self.__robot.vertices["x"][1], self.__robot.vertices["y"][1]],
+                                                      self.__robot.robot_base_origin)
                         base_offset = base_offset_vec[0]
-                        self.__robot.link_lengths[0] = abs(base_offset)
+                        self.__robot.link_lengths[0] = abs(base_offset)  # Correcting error in x with linear base
                     else:
                         error_vector = np.subtract([self.__robot.vertices["x"][0],
                                                     self.__robot.vertices["y"][0]], self.__robot.robot_base_origin)
                     error = np.linalg.norm(error_vector)
+
                 else:  # Even iteration = forward iteration
                     self.__robot.vertices["x"][0] = self.__robot.robot_base_origin[0]
                     self.__robot.vertices["y"][0] = self.__robot.robot_base_origin[1]
                     if self.__robot.linear_base:
                         self.__robot.vertices["y"][1] = self.__robot.robot_base_origin[1]
-                    for vertex_index in range(start_link_idx + 1, loop_end + 1):
+
+                    for vertex_index in range(start_link_idx + 1, last_link_idx + 1):
                         link_length = self.__robot.link_lengths[vertex_index - 1]
                         behind_vertex = [self.__robot.vertices["x"][vertex_index - 1],
                                          self.__robot.vertices["y"][vertex_index - 1]]
@@ -150,18 +162,6 @@ class Fabrik:
                     print(f"Solution found in {iterations} iterations")
                 self.solved = True
         return self.__robot.vertices
-
-    def __validate_target(self):
-        valid_target = False
-        if self.__robot.linear_base:  # Linear base allows free movement along x-axis so only y distance matters.
-            self.effective_target_distance = abs(self.__target_position[1])
-        else:
-            self.effective_target_distance = abs(np.linalg.norm(self.__target_position))
-
-        if self.effective_target_distance < self.__total_robot_length:
-            valid_target = True
-
-        return valid_target
 
     def __mirrored_elbows(self):
         self.__robot.mirrored_vertices = copy.deepcopy(self.__robot.vertices)
