@@ -99,10 +99,17 @@ class Robot:
 
             self.joint_configuration = joint_configuration
         else:
-            assert len(self.joint_configuration) == len(
-                self.link_lengths), f'Number of joint angles ({len(self.joint_configuration)}), ' \
-                               f'does not equal number of links ({len(self.link_lengths)})'
-        self.forward_kinematics(target_configuration=self.joint_configuration, initialise=True, plot=False)
+            if self.linear_base:
+                assert len(self.joint_configuration) == len(
+                    self.link_lengths) - 1, f'Number of joint angles ({len(self.joint_configuration)}), ' \
+                                   f'does not equal number of links ({len(self.link_lengths)})'
+
+            else:
+                assert len(self.joint_configuration) == len(
+                    self.link_lengths), f'Number of joint angles ({len(self.joint_configuration)}), ' \
+                                            f'does not equal number of links ({len(self.link_lengths)})'
+        self.forward_kinematics(target_configuration=self.joint_configuration, debug=False, plot=False)
+        self.mirrored_vertices = self.vertices
 
     def __plot(self, mirror=False, target_orientation=False):
         vertices = self.vertices
@@ -149,14 +156,14 @@ class Robot:
         plt.axis('image')
         plt.show()
 
-    def inverse_kinematics(self, target_position, target_orientation, mirror=True, debug=False):
+    def inverse_kinematics(self, target_position, target_orientation, mirror=True, debug=False, plot=False):
         ik = self.ik_alg(robot=self, target_position=target_position, target_orientation=target_orientation)
         ik.solve(debug=debug, mirror=mirror)
-        if ik.solved:
+        if ik.solved and plot:
             self.__plot(mirror=mirror, target_orientation=target_orientation)
 
-    def forward_kinematics(self, target_configuration, initialise=False, plot=True):
+    def forward_kinematics(self, target_configuration, debug=False, plot=False):
         fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
-        fk.forward_kinematics(initialise=initialise)
+        fk.forward_kinematics(debug=debug)
         if plot:
             self.__plot()

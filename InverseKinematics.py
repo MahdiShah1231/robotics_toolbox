@@ -140,27 +140,29 @@ class Fabrik:
                     print(self.__robot.vertices)
 
             else:
-                print("Final robot configuration:")
-                print(self.__robot.vertices)
                 if mirror:
                     self.__mirrored_elbows()
-                    print(self.__robot.mirrored_vertices)
-                print("Final joint angles:")
-                self.__robot.joint_configuration = calculate_joint_angles(self.__robot.vertices)
-                print(self.__robot.joint_configuration)
-                if mirror:
                     self.__robot.mirrored_joint_configuration = calculate_joint_angles(self.__robot.mirrored_vertices)
-                    print(self.__robot.mirrored_joint_configuration)
+                self.__robot.joint_configuration = calculate_joint_angles(self.__robot.vertices)
+                self.solved = True
 
                 if debug:
-                    print("\nPrinting lengths for debugging...")
+                    print("\nPrinting debugging info...")
+                    print("Final robot configuration:")
+                    print(self.__robot.vertices)
+                    if mirror:
+                        print(self.__robot.mirrored_vertices)
+                    print("Final joint angles:")
+                    print(self.__robot.joint_configuration)
+                    if mirror:
+                        print(self.__robot.mirrored_joint_configuration)
                     print("\nRobot link lengths:")
                     check_link_lengths(link_lengths=self.__robot.link_lengths, vertices=self.__robot.vertices)
                     if mirror:
                         print("\nRobot link lengths (mirrored vertices):")
                         check_link_lengths(link_lengths=self.__robot.link_lengths, vertices=self.__robot.mirrored_vertices)
-                    print(f"Solution found in {iterations} iterations")
-                self.solved = True
+                    print(f"\nSolution found in {iterations} iterations")
+
         return self.__robot.vertices
 
     def __mirrored_elbows(self):

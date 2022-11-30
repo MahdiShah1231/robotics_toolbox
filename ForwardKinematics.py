@@ -7,7 +7,7 @@ class ForwardKinematics:
         self.__robot = robot
         self.__target_configuration = wrap_angles_to_pi(target_configuration)
 
-    def forward_kinematics(self, initialise=False):
+    def forward_kinematics(self, debug=False):
         if self.__robot.linear_base:
             self.__target_configuration.insert(0, 0.0)
         reference_angle = 0
@@ -22,7 +22,7 @@ class ForwardKinematics:
 
             reference_angle += self.__target_configuration[link_index]
         self.__robot.joint_configuration = calculate_joint_angles(self.__robot.vertices)
-        if not initialise:
+        if debug:
             print("Final robot configuration:")
             print(self.__robot.joint_configuration)
             print(self.__robot.vertices)
