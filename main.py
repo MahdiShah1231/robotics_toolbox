@@ -2,7 +2,6 @@ import numpy as np
 from Robot import Robot
 from InverseKinematics import Fabrik
 
-
 def create_robot(link_lengths,
                  ik_alg=None,
                  joint_configuration=None,
@@ -23,16 +22,18 @@ def inverse_kinematics(robot,
                        target_position,
                        target_orientation=None,
                        mirror=True,
-                       debug=False):
+                       debug=False,
+                       plot=False):
 
     robot.inverse_kinematics(target_position=target_position,
                              target_orientation=target_orientation,
                              mirror=mirror,
-                             debug=debug)
+                             debug=debug,
+                             plot=plot)
 
 
-def forward_kinematics(robot, target_configuration):
-    robot.forward_kinematics(target_configuration=target_configuration)
+def forward_kinematics(robot, target_configuration, debug=False, plot=False):
+    robot.forward_kinematics(target_configuration=target_configuration, debug=debug, plot=plot)
 
 
 if __name__ == '__main__':
