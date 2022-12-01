@@ -1,3 +1,5 @@
+from typing import List, Any, Optional
+
 import numpy as np
 from PIL import Image
 from matplotlib import pyplot as plt
@@ -8,23 +10,24 @@ from helper_functions.helper_functions import wrap_angles_to_pi, draw_environmen
 SCALE_TO_MM = 1000
 
 class Robot:
-    def __init__(self, link_lengths,
-                 ik_alg=None,
-                 joint_configuration=None,
-                 robot_base_radius=None,
-                 linear_base=False,
-                 environment=None):
-        self.__link_lengths = list(map(lambda x: x * SCALE_TO_MM, link_lengths))  # Scaling links from m to mm
-        self.__ik_alg = ik_alg if ik_alg is not None else Fabrik
+    def __init__(self, link_lengths: List[float],
+                 ik_alg: Any = Fabrik,
+                 joint_configuration: List[float] = None,
+                 robot_base_radius: float = 0.1,
+                 linear_base: bool = False,
+                 environment: Any = None) -> None:
+
+        self.__link_lengths = list(map(lambda x: float(x) * SCALE_TO_MM, link_lengths))  # Scaling links from m to mm
+        self.__ik_alg = ik_alg
         self.joint_configuration = wrap_angles_to_pi(joint_configuration)
         self.__robot_base_radius = robot_base_radius * SCALE_TO_MM  # Scaling radius from m to mm
         self.__linear_base = linear_base
         self.__environment = environment
 
         # Generated attributes
-        self.__robot_base_origin = [self.robot_base_radius, 0]
+        self.__robot_base_origin = [self.robot_base_radius, 0.0]
         self.__n_links = len(link_lengths)
-        self.vertices = {"x": [0] * (self.n_links + 1), "y": [0] * (self.n_links + 1)}
+        self.vertices = {"x": [0.0] * (self.n_links + 1), "y": [0.0] * (self.n_links + 1)}
         self.vertices["x"] = list(map(lambda x: x + self.robot_base_radius, self.vertices["x"]))
         self.mirrored_joint_configuration = None
         self.mirrored_vertices = None
@@ -61,7 +64,7 @@ class Robot:
     def robot_base_origin(self):
         return self.__robot_base_origin
 
-    def __is_foldable(self):
+    def __is_foldable(self) -> bool:
         foldable = True
         if not self.linear_base:
             start = 0
@@ -77,9 +80,9 @@ class Robot:
             link_index += 1
         return foldable
 
-    def __configure_robot(self):
+    def __configure_robot(self) -> None:
         if self.linear_base:
-            self.__link_lengths.insert(0, 0)
+            self.__link_lengths.insert(0, 0.0)
             self.__n_links = len(self.link_lengths)
             self.vertices["x"].insert(0, self.robot_base_origin[0])
             self.vertices["y"].insert(0, self.robot_base_origin[1])
@@ -93,9 +96,9 @@ class Robot:
 
             if foldable:
                 joint_configuration = list(map(lambda x: ((-1) ** x) * np.pi, range(n_arm_links - 1)))
-                joint_configuration.insert(0, 0)  # First joint outstretched
+                joint_configuration.insert(0, 0.0)  # First joint outstretched
             else:
-                joint_configuration = [0] * n_arm_links
+                joint_configuration = [0.0] * n_arm_links
 
             self.joint_configuration = joint_configuration
         else:
@@ -111,7 +114,7 @@ class Robot:
         self.forward_kinematics(target_configuration=self.joint_configuration, debug=False, plot=False)
         self.mirrored_vertices = self.vertices
 
-    def __plot(self, mirror=False, target_orientation=False):
+    def __plot(self, mirror: bool = False, target_orientation: float = None) -> None:
         vertices = self.vertices
         mirrored_vertices = self.mirrored_vertices
         environment = self.environment
@@ -133,7 +136,7 @@ class Robot:
                 assert len(environment) == 2, "Environment list must have two elements, [env_width, env_height]"
                 draw_environment(self.robot_base_radius, environment[0], environment[1])
 
-        if self.linear_base is False:
+        if not self.linear_base:
             robot_base_origin = self.robot_base_origin
             plt.plot(vertices["x"], vertices["y"], 'go-')
             mirror_start_index = 0
@@ -156,13 +159,19 @@ class Robot:
         plt.axis('image')
         plt.show()
 
-    def inverse_kinematics(self, target_position, target_orientation, mirror=True, debug=False, plot=False):
+    def inverse_kinematics(self, target_position: List[float],
+                           target_orientation: Optional[float] = None,
+                           mirror: bool = True,
+                           debug: bool = False,
+                           plot: bool = False) -> None:
         ik = self.ik_alg(robot=self, target_position=target_position, target_orientation=target_orientation)
         ik.solve(debug=debug, mirror=mirror)
         if ik.solved and plot:
             self.__plot(mirror=mirror, target_orientation=target_orientation)
 
-    def forward_kinematics(self, target_configuration, debug=False, plot=False):
+    def forward_kinematics(self, target_configuration: List[float],
+                           debug: bool = False,
+                           plot: bool = False) -> None:
         fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
         fk.forward_kinematics(debug=debug)
         if plot:
