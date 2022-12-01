@@ -27,7 +27,7 @@ def wrap_angle_to_pi(angle: float) -> float:
         else:
             wrapped_angle = (angle - (np.pi * wrap_count)) - np.pi
     else:
-        wrapped_angle = angle
+        wrapped_angle = float(angle)
     return wrapped_angle
 
 
@@ -39,7 +39,7 @@ def wrap_angles_to_pi(angles: List[float]) -> Union[List[float], None]:
     return wrapped_angles
 
 
-def draw_environment(robot_base_radius: float, workspace_width: int = 950, workspace_height: int = 950) -> None:
+def draw_environment(robot_base_radius: float, workspace_width: float = 950.0, workspace_height: float = 950.0) -> None:
     # Param inconsistencies
 
     vertices = [(0, -robot_base_radius),
