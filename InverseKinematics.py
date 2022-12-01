@@ -27,50 +27,62 @@ class Fabrik:
 
     def solve(self, debug: bool, mirror: bool) -> Dict[str, List[float]]:
         iterations = 0
+
+        # First validate target before attempting to compute solution
         valid_target, effective_target_distance = validate_target(target=self.__target_position,
                                                                   linear_base=self.__robot.linear_base,
                                                                   robot_length=self.__total_robot_length)
+        # Invalid target, no computation attempted.
         if not valid_target:
             print("Could not solve. Target outside of robot range")
             print(f"target distance = {effective_target_distance}, robot max reach = {self.__total_robot_length}")
             print("\nChoose a valid target or link lengths")
 
+        # Valid target given, attempt to compute IK solution.
         else:
-            if self.__target_orientation is None:  # Target is the last vertex position
+            # If there is no target orientation given, the end effector can be oriented in any way to reach the target
+            if self.__target_orientation is None:
+                # The "effective" end effector = robot last vertex
                 ee_position_actual = [self.__robot.vertices["x"][-1],
                                       self.__robot.vertices["y"][-1]]
+                # The target for the effective end effector is = target
                 ee_position_target = self.__target_position
                 ee_vertex_index = -1
 
-            else:  # Target is the second last vertex position
+            # If there is a target orientation given, the end effector must be oriented in the specified orientation
+            else:
+                # The "effective" end effector = robot 2nd last vertex, This is the start of the last link,
+                # it must be moved to an "effective" target such that with the correct orientation, the last vertex will
+                # reach the target
                 ee_position_actual = [self.__robot.vertices["x"][-2],
                                       self.__robot.vertices["y"][-2]]
                 last_link_orientation = np.around([np.cos(self.__target_orientation),
                                                    np.sin(self.__target_orientation)], decimals=5)
                 oriented_last_link = list(map(lambda i: i * self.__robot.link_lengths[-1], last_link_orientation))
+                # The "effective" target has to take into account the orientation of the final link
                 ee_position_target = np.subtract(self.__target_position, oriented_last_link)
                 ee_vertex_index = -2
 
+            if not self.__robot.linear_base:
+                start_link_idx = 0  # Start from first link if no linear base
+
+                # n_unset_links = number of links to set through computation.
+                # Equals n_links if no target orientation (e.g need to set every link)
+                # Or equals n_links - 1 if target orientation given (e.g no need to computationally set last link)
+                n_unset_links = self.__robot.n_links if self.__target_orientation is None else self.__robot.n_links - 1
+                last_link_idx = n_unset_links
+
+            else:
+                start_link_idx = 1  # Start from second link if linear base
+
+                # If target orientation given, must set n-2 links, because last set with correct orientation and
+                # first set with correct orientation (prismatic base)
+                n_unset_links = self.__robot.n_links - 1 if self.__target_orientation is None else self.__robot.n_links - 2
+                last_link_idx = n_unset_links + 1
+
+            # Calculate starting error and then start computation
             error_vector = np.subtract(ee_position_target, ee_position_actual)
             error = np.linalg.norm(error_vector)
-
-            if not self.__robot.linear_base:
-                start_link_idx = 0
-                if self.__target_orientation is None:  # Must set n links
-                    n_unset_links = self.__robot.n_links
-                else:
-                    # Must set n-1 links, last link already set with correct orientation
-                    n_unset_links = self.__robot.n_links - 1
-                last_link_idx = n_unset_links
-            else:
-                start_link_idx = 1
-                if self.__target_orientation is None:  # Must set n - 1 links
-                    n_unset_links = self.__robot.n_links - 1
-                else:
-                    # Must set n-2 links, last set with correct orientation and
-                    # first set with correct orientation (prismatic base)
-                    n_unset_links = self.__robot.n_links - 2
-                last_link_idx = n_unset_links + 1
 
             while error > self.__error_tolerance and iterations < self.__max_iterations:
                 iterations += 1
