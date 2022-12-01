@@ -12,7 +12,7 @@ SCALE_TO_MM = 1000
 class Robot:
     def __init__(self, link_lengths: List[float],
                  ik_alg: Any = Fabrik,
-                 joint_configuration: List[float] = None,
+                 joint_configuration: Optional[List[float]] = None,
                  robot_base_radius: float = 0.1,
                  linear_base: bool = False,
                  environment: Any = None) -> None:
