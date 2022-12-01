@@ -53,7 +53,7 @@ def wrap_angle_to_pi(angle: float) -> float:
     return wrapped_angle
 
 
-def wrap_angles_to_pi(angles: List[float]) -> Union[List[float], None]:
+def wrap_angles_to_pi(angles: Union[List[float], float]) -> Union[List[float], None]:
     if angles is not None:
         # Call wrap_angle_to_pi on given list of angles
         wrapped_angles = list(map(wrap_angle_to_pi, angles))
@@ -63,6 +63,15 @@ def wrap_angles_to_pi(angles: List[float]) -> Union[List[float], None]:
         wrapped_angles = None
 
     return wrapped_angles
+
+
+def find_new_vertex(link_length: float, vertex1: List[float], vertex2: List[float]) -> List[float]:
+    direction_vector = np.subtract(vertex2, vertex1)  # Pointing from v1 -> v2
+    length = np.linalg.norm(direction_vector)
+    scaled_direction_vector = (direction_vector / length) * link_length
+    adjusted_vertex2_x, adjusted_vertex2_y = np.add(vertex1, scaled_direction_vector)
+
+    return [adjusted_vertex2_x, adjusted_vertex2_y]
 
 
 def draw_environment(robot_base_radius: float, workspace_width: float = 950.0, workspace_height: float = 950.0) -> None:
