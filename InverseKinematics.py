@@ -2,15 +2,19 @@ import copy
 import numpy as np
 from helper_functions.helper_functions import calculate_joint_angles, wrap_angle_to_pi, check_link_lengths, \
     validate_target
+from typing import TYPE_CHECKING, List, Dict
+
+if TYPE_CHECKING:
+    from Robot import Robot
 
 SCALE_TO_MM = 1000
 
 class Fabrik:
-    def __init__(self, robot,
-                 target_position=None,
-                 target_orientation=None,
-                 error_tolerance=0.000001,
-                 max_iterations=100000):
+    def __init__(self, robot: 'Robot',
+                 target_position: List[float],
+                 target_orientation: float,
+                 error_tolerance: float = 0.000001,
+                 max_iterations: int = 100000) -> None:
         self.__robot = robot
         self.__target_position = list(map(lambda x: x * SCALE_TO_MM, target_position))  # Scaling target from m to mm
         self.__target_orientation = wrap_angle_to_pi(target_orientation)
@@ -20,7 +24,7 @@ class Fabrik:
         self.__max_iterations = max_iterations
         self.solved = False
 
-    def solve(self, debug=False, mirror=False):
+    def solve(self, debug: bool, mirror: bool) -> Dict[str, List[float]]:
         iterations = 0
         valid_target, effective_target_distance = validate_target(target=self.__target_position,
                                                                   linear_base=self.__robot.linear_base,
@@ -165,7 +169,7 @@ class Fabrik:
 
         return self.__robot.vertices
 
-    def __mirrored_elbows(self):
+    def __mirrored_elbows(self) -> Dict[str, List[float]]:
         self.__robot.mirrored_vertices = copy.deepcopy(self.__robot.vertices)
         if self.__robot.linear_base:
             mirror_start_vertex_index = 1
@@ -205,11 +209,7 @@ class Fabrik:
         return self.__robot.mirrored_vertices
 
     def check_collisions(self):
-        robot_points = list(zip(self.__robot.vertices["x"], self.__robot.vertices["y"]))
-        # print(robot_points)
-        # collision_checking('Scenario_01_OT2_IntelliX_001.ppm', self.configuration.vertices, check_radius=15, granularity=10)
+        raise NotImplementedError
 
 if __name__ == '__main__':
     pass
-
-# "Scenario_01_OT2_IntelliX_001.ppm"
