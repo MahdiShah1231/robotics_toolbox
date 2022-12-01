@@ -21,7 +21,7 @@ def calculate_joint_angles(vertices: Dict[str, List[float]]) -> List[float]:
 
 def wrap_angle_to_pi(angle: float) -> float:
     if angle > np.pi:
-        wrap_count = angle // (np.pi)
+        wrap_count = angle // np.pi
         if wrap_count % 2 == 0:
             wrapped_angle = (angle - (np.pi * wrap_count))
         else:

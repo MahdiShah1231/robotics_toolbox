@@ -9,6 +9,7 @@ from helper_functions.helper_functions import wrap_angles_to_pi, draw_environmen
 
 SCALE_TO_MM = 1000
 
+
 class Robot:
     def __init__(self, link_lengths: List[float],
                  ik_alg: Any = Fabrik,

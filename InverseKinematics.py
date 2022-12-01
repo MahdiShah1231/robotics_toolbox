@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 SCALE_TO_MM = 1000
 
+
 class Fabrik:
     def __init__(self, robot: 'Robot',
                  target_position: List[float],
@@ -164,7 +165,8 @@ class Fabrik:
                     check_link_lengths(link_lengths=self.__robot.link_lengths, vertices=self.__robot.vertices)
                     if mirror:
                         print("\nRobot link lengths (mirrored vertices):")
-                        check_link_lengths(link_lengths=self.__robot.link_lengths, vertices=self.__robot.mirrored_vertices)
+                        check_link_lengths(link_lengths=self.__robot.link_lengths,
+                                           vertices=self.__robot.mirrored_vertices)
                     print(f"\nSolution found in {iterations} iterations")
 
         return self.__robot.vertices
@@ -175,7 +177,8 @@ class Fabrik:
             mirror_start_vertex_index = 1
         else:
             mirror_start_vertex_index = 0
-        start = [self.__robot.mirrored_vertices["x"][mirror_start_vertex_index], self.__robot.mirrored_vertices["y"][mirror_start_vertex_index]]
+        start = [self.__robot.mirrored_vertices["x"][mirror_start_vertex_index],
+                 self.__robot.mirrored_vertices["y"][mirror_start_vertex_index]]
 
         if self.__target_orientation is None:
             mirror_last_vertex_index = self.__robot.n_links
