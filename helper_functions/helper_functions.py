@@ -5,37 +5,63 @@ from matplotlib import pyplot as plt
 
 def calculate_joint_angles(vertices: Dict[str, List[float]]) -> List[float]:
     joint_angles = [0.0] * (len(vertices["x"]) - 1)
-    old_direction_vector = [1, 0]
+    old_direction_vector = [1, 0]  # Starting reference vector (taking angle from positive x)
     last_vertex_index = len(vertices["x"]) - 1
+
+    # Looping through vertices to calculate angles between the links using linear algebra
     for vertex_index in range(last_vertex_index):
         vertex = [vertices["x"][vertex_index], vertices["y"][vertex_index]]
         vertex_ahead = [vertices["x"][vertex_index + 1], vertices["y"][vertex_index + 1]]
         new_direction_vector = np.subtract(vertex_ahead, vertex)
-        arg1 = old_direction_vector[0] * new_direction_vector[1] - old_direction_vector[1] * new_direction_vector[0]
-        arg2 = old_direction_vector[0] * new_direction_vector[0] + old_direction_vector[1] * new_direction_vector[1]
-        joint_angle = np.arctan2(arg1, arg2)
+
+        # in 2D, cross product of 2 vectors: A X B = |A|*|B|*Sin(theta)
+        # Dot product: A . B = |A|*|B|*Cos(theta)
+        # Tan(theta) = Sin(theta)/Cos(theta)
+        # Therefore signed clockwise angle between vectors is given as Atan2(cross_prod, dot_prod)
+        cross_prod = np.cross(old_direction_vector, new_direction_vector)
+        dot_prod = np.dot(old_direction_vector, new_direction_vector)
+        joint_angle = np.arctan2(cross_prod, dot_prod)
         joint_angles[vertex_index] = joint_angle
-        old_direction_vector = new_direction_vector
+
+        old_direction_vector = new_direction_vector  # Updating the reference vector
+
     return joint_angles
 
 
 def wrap_angle_to_pi(angle: float) -> float:
+    # Wrap angle if angle > pi
     if angle > np.pi:
+
+        # Floor div to find int number of times the angle wraps around pi
         wrap_count = angle // np.pi
+
+        # If wrap_count is a multiple of 2 (e.g angle = 2pi, 4pi, ... etc),
+        # angle goes through integer full rotations of 2pi
         if wrap_count % 2 == 0:
+            # Subtract pi * wrap_count from the angle to unwind it through n=wrap_count full rotations
             wrapped_angle = (angle - (np.pi * wrap_count))
+
+        # If wrap_count % 2 != 0 here (including angle > np.pi) then the angle consists of multiples of a whole rotation
+        # plus some remaining angle above pi
         else:
+            # First unwrap full rotations and then subtract the remaining pi
             wrapped_angle = (angle - (np.pi * wrap_count)) - np.pi
     else:
+        # If angle < pi, return the float of it to ensure only float returns
         wrapped_angle = float(angle)
+
     return wrapped_angle
 
 
 def wrap_angles_to_pi(angles: List[float]) -> Union[List[float], None]:
     if angles is not None:
+        # Call wrap_angle_to_pi on given list of angles
         wrapped_angles = list(map(wrap_angle_to_pi, angles))
+
+    # No angles given, return None
     else:
         wrapped_angles = None
+
     return wrapped_angles
 
 
@@ -53,22 +79,31 @@ def draw_environment(robot_base_radius: float, workspace_width: float = 950.0, w
 
 
 def check_link_lengths(link_lengths: List[float], vertices: Dict[str, List[float]]) -> None:
-    for i in range(len(vertices["x"]) - 1):  # Checking always forward
+
+    # Checking links from first to last
+    for i in range(len(vertices["x"]) - 1):
         link_length = link_lengths[i]
         behind_vertex = [vertices["x"][i], vertices["y"][i]]
         ahead_vertex = [vertices["x"][i + 1], vertices["y"][i + 1]]
         dir_vec = np.subtract(ahead_vertex, behind_vertex)
         new_link_length = np.linalg.norm(dir_vec)
-        print(link_length, new_link_length)
+
+        # floating point comparison for link lengths to avoid precision errors
+        assert abs(link_length - new_link_length) < 1e-3, f"Link index {i} inconsistent lengths" \
+                                                          f" {link_length, new_link_length}"
 
 
 def validate_target(target: List[float], linear_base: bool, robot_length: float) -> Tuple[bool, float]:
     valid_target = False
-    if linear_base:  # Linear base allows free movement along x-axis so only y distance matters.
+
+    if linear_base:
+        # Linear base allows free movement along x-axis so only y distance matters.
         effective_target_distance = abs(target[1])
     else:
+        # Without linear base, the x distance is non-negligible
         effective_target_distance = abs(np.linalg.norm(target))
 
+    # Non-inclusive equality because numerical method IKs such as Fabrik dont do well at the extreme limit
     if effective_target_distance < robot_length:
         valid_target = True
 
