@@ -1,13 +1,17 @@
 import numpy as np
 from helper_functions.helper_functions import calculate_joint_angles, wrap_angles_to_pi
+from typing import TYPE_CHECKING, List, Dict
+
+if TYPE_CHECKING:
+    from Robot import Robot
 
 
 class ForwardKinematics:
-    def __init__(self, robot, target_configuration):
+    def __init__(self, robot: 'Robot', target_configuration: List[float]) -> None:
         self.__robot = robot
         self.__target_configuration = wrap_angles_to_pi(target_configuration)
 
-    def forward_kinematics(self, debug=False):
+    def forward_kinematics(self, debug: bool) -> Dict[str, List[float]]:
         if self.__robot.linear_base:
             self.__target_configuration.insert(0, 0.0)
         reference_angle = 0
@@ -26,3 +30,5 @@ class ForwardKinematics:
             print("Final robot configuration:")
             print(self.__robot.joint_configuration)
             print(self.__robot.vertices)
+
+        return self.__robot.vertices
