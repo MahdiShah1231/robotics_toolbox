@@ -140,21 +140,21 @@ class Fabrik:
                     if self.__robot.linear_base:
                         self.__robot.vertices["y"][1] = self.__robot.robot_base_origin[1]
 
-                    for vertex_index in range(arm_start_link_idx, last_unset_arm_link_idx):
-                        link_length = self.__robot.link_lengths[vertex_index - 1]
+                    for vertex_index in range(arm_start_link_idx, last_unset_arm_link_idx + 1):
+                        link_length = self.__robot.link_lengths[vertex_index]
 
-                        behind_vertex = [self.__robot.vertices["x"][vertex_index - 1],
-                                         self.__robot.vertices["y"][vertex_index - 1]]
-                        ahead_vertex = [self.__robot.vertices["x"][vertex_index],
-                                        self.__robot.vertices["y"][vertex_index]]
+                        behind_vertex = [self.__robot.vertices["x"][vertex_index],
+                                         self.__robot.vertices["y"][vertex_index]]
+                        ahead_vertex = [self.__robot.vertices["x"][vertex_index + 1],
+                                        self.__robot.vertices["y"][vertex_index + 1]]
 
                         # Adjust the ahead vertex based on the link length and direction
                         new_ahead_vertex = find_new_vertex(link_length=link_length,
                                                            vertex1=behind_vertex,
                                                            vertex2=ahead_vertex)
 
-                        self.__robot.vertices["x"][vertex_index] = new_ahead_vertex[0]
-                        self.__robot.vertices["y"][vertex_index] = new_ahead_vertex[1]
+                        self.__robot.vertices["x"][vertex_index + 1] = new_ahead_vertex[0]
+                        self.__robot.vertices["y"][vertex_index + 1] = new_ahead_vertex[1]
 
                     if self.__target_orientation is not None:
                         # Resetting last arm vertex to give correct orientation from the second last vertex

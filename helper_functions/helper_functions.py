@@ -56,7 +56,10 @@ def wrap_angle_to_pi(angle: float) -> float:
 def wrap_angles_to_pi(angles: Union[List[float], float]) -> Union[List[float], None]:
     if angles is not None:
         # Call wrap_angle_to_pi on given list of angles
-        wrapped_angles = list(map(wrap_angle_to_pi, angles))
+        if isinstance(angles, list):
+            wrapped_angles = list(map(wrap_angle_to_pi, angles))
+        elif isinstance(angles, float):
+            wrapped_angles = wrap_angle_to_pi(angles)
 
     # No angles given, return None
     else:
