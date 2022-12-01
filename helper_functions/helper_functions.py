@@ -1,9 +1,10 @@
+from typing import Dict, List, Union, Tuple
 import numpy as np
 from matplotlib import pyplot as plt
 
 
-def calculate_joint_angles(vertices):
-    joint_angles = [0] * (len(vertices["x"]) - 1)
+def calculate_joint_angles(vertices: Dict[str, List[float]]) -> List[float]:
+    joint_angles = [0.0] * (len(vertices["x"]) - 1)
     old_direction_vector = [1, 0]
     last_vertex_index = len(vertices["x"]) - 1
     for vertex_index in range(last_vertex_index):
@@ -18,22 +19,19 @@ def calculate_joint_angles(vertices):
     return joint_angles
 
 
-def wrap_angle_to_pi(angle):
-    if angle is not None:
-        if angle > np.pi:
-            wrap_count = angle // (np.pi)
-            if wrap_count % 2 == 0:
-                wrapped_angle = (angle - (np.pi * wrap_count))
-            else:
-                wrapped_angle = (angle - (np.pi * wrap_count)) - np.pi
+def wrap_angle_to_pi(angle: float) -> float:
+    if angle > np.pi:
+        wrap_count = angle // (np.pi)
+        if wrap_count % 2 == 0:
+            wrapped_angle = (angle - (np.pi * wrap_count))
         else:
-            wrapped_angle = angle
+            wrapped_angle = (angle - (np.pi * wrap_count)) - np.pi
     else:
         wrapped_angle = angle
     return wrapped_angle
 
 
-def wrap_angles_to_pi(angles):
+def wrap_angles_to_pi(angles: List[float]) -> Union[List[float], None]:
     if angles is not None:
         wrapped_angles = list(map(wrap_angle_to_pi, angles))
     else:
@@ -41,12 +39,8 @@ def wrap_angles_to_pi(angles):
     return wrapped_angles
 
 
-def draw_environment(robot_base_radius, workspace_width=None, workspace_height=None):
-    # GIVE PARAMS IN MM
-    if workspace_width is None:
-        workspace_width = 950
-    if workspace_height is None:
-        workspace_height = 950
+def draw_environment(robot_base_radius: float, workspace_width: int = 950, workspace_height: int = 950) -> None:
+    # Param inconsistencies
 
     vertices = [(0, -robot_base_radius),
                 (0, workspace_height - robot_base_radius),
@@ -58,7 +52,7 @@ def draw_environment(robot_base_radius, workspace_width=None, workspace_height=N
     plt.gcf().gca().add_artist(obstacle)
 
 
-def check_link_lengths(link_lengths, vertices):
+def check_link_lengths(link_lengths: List[float], vertices: Dict[str, List[float]]) -> None:
     for i in range(len(vertices["x"]) - 1):  # Checking always forward
         link_length = link_lengths[i]
         behind_vertex = [vertices["x"][i], vertices["y"][i]]
@@ -67,7 +61,8 @@ def check_link_lengths(link_lengths, vertices):
         new_link_length = np.linalg.norm(dir_vec)
         print(link_length, new_link_length)
 
-def validate_target(target, linear_base, robot_length):
+
+def validate_target(target: List[float], linear_base: bool, robot_length: float) -> Tuple[bool, float]:
     valid_target = False
     if linear_base:  # Linear base allows free movement along x-axis so only y distance matters.
         effective_target_distance = abs(target[1])
