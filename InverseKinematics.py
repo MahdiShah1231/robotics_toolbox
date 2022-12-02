@@ -1,6 +1,6 @@
 import copy
 import numpy as np
-from helper_functions.helper_functions import calculate_joint_angles, wrap_angles_to_pi, check_link_lengths, \
+from helper_functions.helper_functions import calculate_joint_angles, wrap_angle_to_pi, check_link_lengths, \
     validate_target, find_new_vertex
 from typing import TYPE_CHECKING, List, Dict
 
@@ -18,7 +18,7 @@ class Fabrik:
                  max_iterations: int = 100000) -> None:
         self.__robot = robot
         self.__target_position = list(map(lambda x: x * SCALE_TO_MM, target_position))  # Scaling target from m to mm
-        self.__target_orientation = wrap_angles_to_pi(target_orientation)
+        self.__target_orientation = wrap_angle_to_pi(target_orientation)
         self.__effective_target_distance = None
         self.__total_robot_length = sum(self.__robot.link_lengths)
         self.__error_tolerance = error_tolerance

@@ -28,9 +28,11 @@ def calculate_joint_angles(vertices: Dict[str, List[float]]) -> List[float]:
     return joint_angles
 
 
-def wrap_angle_to_pi(angle: float) -> float:
+def wrap_angle_to_pi(angle: float) -> Union[float, None]:
+    if angle is None:
+        return angle
     # Wrap angle if angle > pi
-    if angle > np.pi:
+    elif angle > np.pi:
 
         # Floor div to find int number of times the angle wraps around pi
         wrap_count = angle // np.pi
@@ -56,14 +58,11 @@ def wrap_angle_to_pi(angle: float) -> float:
 def wrap_angles_to_pi(angles: Union[List[float], float]) -> Union[List[float], None]:
     if angles is not None:
         # Call wrap_angle_to_pi on given list of angles
-        if isinstance(angles, list):
-            wrapped_angles = list(map(wrap_angle_to_pi, angles))
-        elif isinstance(angles, float):
-            wrapped_angles = wrap_angle_to_pi(angles)
+        wrapped_angles = list(map(wrap_angle_to_pi, angles))
 
     # No angles given, return None
     else:
-        wrapped_angles = None
+        wrapped_angles = angles
 
     return wrapped_angles
 
