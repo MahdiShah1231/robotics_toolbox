@@ -95,6 +95,9 @@ class Fabrik:
                         self.__robot.vertices["y"][-2] = self.__robot.vertices["y"][-1] - oriented_last_link[1]
 
                     # Only setting the arm links
+                    # Vertex i is the start of link i
+                    # When iterating backwards, the ahead vertex is the start of the current link, and back vertex
+                    # is the end of the current link.
                     for vertex_index in reversed(range(arm_start_link_idx, last_unset_arm_link_idx + 1)):
                         link_length = self.__robot.link_lengths[vertex_index]
 
@@ -205,42 +208,41 @@ class Fabrik:
         return self.__robot.vertices
 
     def __mirrored_elbows(self) -> Dict[str, List[float]]:
-        self.__robot.mirrored_vertices = copy.deepcopy(self.__robot.vertices)
-        if self.__robot.linear_base:
-            mirror_start_vertex_index = 1
-        else:
-            mirror_start_vertex_index = 0
-        start = [self.__robot.mirrored_vertices["x"][mirror_start_vertex_index],
-                 self.__robot.mirrored_vertices["y"][mirror_start_vertex_index]]
+        self.__robot.mirrored_vertices = copy.deepcopy(self.__robot.vertices)  # Start by copying current vertices
 
-        if self.__target_orientation is None:
-            mirror_last_vertex_index = self.__robot.n_links
-        else:
-            mirror_last_vertex_index = self.__robot.n_links - 1
+        # The first robot arm vertex is where the mirror line starts
+        mirror_line_start_vertex_index = 0 if not self.__robot.linear_base else 1
+        mirror_line_start_vertex = [self.__robot.mirrored_vertices["x"][mirror_line_start_vertex_index],
+                                    self.__robot.mirrored_vertices["y"][mirror_line_start_vertex_index]]
 
-        last_vertex = [self.__robot.mirrored_vertices["x"][mirror_last_vertex_index],
-                       self.__robot.mirrored_vertices["y"][mirror_last_vertex_index]]
-        mirror_vec = np.subtract(last_vertex, start)
+        # The mirror line ends at the last vertex if theres no orientation, or second last if there is an orientation
+        # n_links updates based on if a linear base exists.
+        # vertices[n_links] = last vertex, vertices[n_links - 1] = second last vertex
+        mirror_line_last_vertex_index = self.__robot.n_links if self.__target_orientation is None else self.__robot.n_links - 1
+        mirror_line_last_vertex = [self.__robot.mirrored_vertices["x"][mirror_line_last_vertex_index],
+                                   self.__robot.mirrored_vertices["y"][mirror_line_last_vertex_index]]
+
+        mirror_vec = np.subtract(mirror_line_last_vertex, mirror_line_start_vertex)
         mirror_vec_length = np.linalg.norm(mirror_vec)
+        unit_mirror_vec = mirror_vec/mirror_vec_length
 
-        if self.__robot.linear_base:
-            start_vertex_index = 2
-        else:
-            start_vertex_index = 1
-
-        for vertex_index in range(start_vertex_index, mirror_last_vertex_index):
+        # Iterate through points not including the start and end as they are on the mirror line so don't get transformed
+        # Mirroring vertices using the vector line formed between the mirror start vertex and the vertex
+        for vertex_index in range(mirror_line_start_vertex_index + 1, mirror_line_last_vertex_index):
             vertex = [self.__robot.mirrored_vertices["x"][vertex_index],
                       self.__robot.mirrored_vertices["y"][vertex_index]]
-            direction_vector = np.subtract(vertex, start)
+
+            direction_vector = np.subtract(vertex, mirror_line_start_vertex)
             length = np.linalg.norm(direction_vector)
-            direction_cosine = np.dot(direction_vector, mirror_vec)/(length*mirror_vec_length) # cos_theta = (A.B)/(|A|*|B|)
-            scaled_mirror_vec = (length * direction_cosine) * (mirror_vec / mirror_vec_length)
-            midpoint = np.add(start, scaled_mirror_vec)
-            translation_direction = np.subtract(midpoint, vertex)
-            scaled_translation_direction = translation_direction*2
-            new_vertex = np.add(vertex, scaled_translation_direction)
-            self.__robot.mirrored_vertices["x"][vertex_index] = new_vertex[0]
-            self.__robot.mirrored_vertices["y"][vertex_index] = new_vertex[1]
+            unit_dir_vec = direction_vector/length
+            direction_cosine = np.dot(unit_dir_vec, unit_mirror_vec)  # cos(theta) between mirror line and vector line
+            line_projection = length * direction_cosine * unit_mirror_vec  # projecting the direction vector on mirror line
+            midpoint = np.add(mirror_line_start_vertex, line_projection)  # midpoint along line from vertex -> mirrored vertex
+            translation_direction = np.subtract(midpoint, vertex)  # direction vector pointing vertex -> mirrored vertex
+            mirrored_vertex = vertex + (2 * translation_direction)  # Using symmetry (vertex -> midpoint = midpoint -> mirrored verted)
+
+            self.__robot.mirrored_vertices["x"][vertex_index] = mirrored_vertex[0]
+            self.__robot.mirrored_vertices["y"][vertex_index] = mirrored_vertex[1]
 
         return self.__robot.mirrored_vertices
 
