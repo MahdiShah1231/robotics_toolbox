@@ -3,6 +3,7 @@ from typing import List, Optional, Any
 import numpy as np
 from Robot import Robot
 from InverseKinematics import Fabrik
+import matplotlib.pyplot as plt
 
 
 def create_robot(link_lengths: List[float],
@@ -28,18 +29,22 @@ def inverse_kinematics(robot: Robot,
                        debug: bool = False,
                        plot: bool = True) -> None:
 
-    robot.inverse_kinematics(target_position=target_position,
-                             target_orientation=target_orientation,
-                             mirror=mirror,
-                             debug=debug,
-                             plot=plot)
+    if plot:
+        fig, ax = plt.subplots()
+        robot.inverse_kinematics(target_position=target_position,
+                                 target_orientation=target_orientation,
+                                 mirror=mirror,
+                                 debug=debug,
+                                 ax=ax)
 
 
 def forward_kinematics(robot: Robot,
                        target_configuration: List[float],
                        debug: bool = False,
                        plot: bool = True) -> None:
-    robot.forward_kinematics(target_configuration=target_configuration, debug=debug, plot=plot)
+    if plot:
+        fig, ax = plt.subplots()
+        robot.forward_kinematics(target_configuration=target_configuration, debug=debug, ax=ax)
 
 
 if __name__ == '__main__':
@@ -49,5 +54,5 @@ if __name__ == '__main__':
                      robot_base_radius=0.1,
                      linear_base=True,
                      environment=None)
-    # inverse_kinematics(robot=r, target_position=[0.5, 0.6], target_orientation=np.pi / 2, mirror=True, debug=False)
-    forward_kinematics(robot=r, target_configuration=[0, np.pi/2, -np.pi/2], debug=False)
+    inverse_kinematics(robot=r, target_position=[0.5, 0.6], target_orientation=np.pi / 2, mirror=True, debug=False)
+    # forward_kinematics(robot=r, target_configuration=[0, np.pi/2, -np.pi/2], debug=False)

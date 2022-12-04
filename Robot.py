@@ -3,6 +3,8 @@ from typing import List, Any, Optional, Union
 import numpy as np
 from PIL import Image
 from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.patches import Circle
 from InverseKinematics import Fabrik
 from ForwardKinematics import ForwardKinematics
 from helper_functions.helper_functions import wrap_angles_to_pi, draw_environment
@@ -116,17 +118,17 @@ class Robot:
                 f'does not equal number of links ({self.n_links})'
 
         # Call forward kinematics to move the robot to the starting joint_configuration
-        self.forward_kinematics(target_configuration=self.joint_configuration, debug=False, plot=False)
+        self.forward_kinematics(target_configuration=self.joint_configuration, debug=False, ax=None)
         self.mirrored_vertices = self.vertices  # Mirrored vertices set to prevent crashes for gui
 
-    def __plot(self, mirror: bool = False, target_orientation: float = None) -> None:
+    def __plot(self, ax: Axes, mirror: bool = False, target_orientation: float = None) -> None:
         vertices = self.vertices
         mirrored_vertices = self.mirrored_vertices
         environment = self.environment
 
         # If a ppm image is not given for the background of the robot
         if environment is None:
-            draw_environment(robot_base_radius=self.robot_base_radius)  # Draw a default environment
+            draw_environment(ax=ax, robot_base_radius=self.robot_base_radius)  # Draw a default environment
         else:
             # Reading image file not implemented yet
             if isinstance(environment, str):
@@ -142,7 +144,10 @@ class Robot:
             # Creating environment given width and height
             elif isinstance(environment, list):
                 assert len(environment) == 2, "Environment list must have two elements, [env_width, env_height]"
-                draw_environment(self.robot_base_radius, environment[0], environment[1])
+                draw_environment(ax=ax,
+                                 robot_base_radius=self.robot_base_radius,
+                                 workspace_width=environment[0],
+                                 workspace_height=environment[1])
             else:
                 raise ValueError("Environment must be a file path for an image (Not supported yet) "
                                  "or a list containing width and height")
@@ -151,51 +156,51 @@ class Robot:
         if not self.linear_base:
             # No linear base so all vertices are robot arm
             current_robot_base = self.robot_base_origin
-            plt.plot(vertices["x"], vertices["y"], 'go-')
+            ax.plot(vertices["x"], vertices["y"], 'go-')
             mirror_start_index = 0  # First robot arm vertex to start mirror from is at idx 0
         else:
             # Linear base enabled so current base at end of prismatic link
             current_robot_base = (vertices["x"][1], vertices["y"][1])
 
             # Show linear base as dotted blue line
-            plt.plot(vertices["x"][0:2], vertices["y"][0:2], 'bo--')
+            ax.plot(vertices["x"][0:2], vertices["y"][0:2], 'bo--')
 
             # Show robot arm as green line
-            plt.plot(vertices["x"][1:], vertices["y"][1:], 'go-')
+            ax.plot(vertices["x"][1:], vertices["y"][1:], 'go-')
             mirror_start_index = 1  # First robot arm vertex to start mirror from is at idx 1
 
         # Plot mirrored links
         if mirror:
             # If no target orientation, mirror includes all links from start (accounting for linear base) to end
             if target_orientation is None:
-                plt.plot(mirrored_vertices["x"][mirror_start_index:],
+                ax.plot(mirrored_vertices["x"][mirror_start_index:],
                          mirrored_vertices["y"][mirror_start_index:], 'ro-')
 
             # If target orientation, mirror only includes links from start (accounting for linear base) to end - 1
             # Because the last link will be coincident for mirror and original
             else:
-                plt.plot(mirrored_vertices["x"][mirror_start_index:-1],
+                ax.plot(mirrored_vertices["x"][mirror_start_index:-1],
                          mirrored_vertices["y"][mirror_start_index:-1], 'ro-')
 
         # Draw robot base
-        base = plt.Circle(current_robot_base, self.robot_base_radius, color="green")
-        plt.gcf().gca().add_artist(base)
-        plt.axis('image')
+        base = Circle(current_robot_base, self.robot_base_radius, color="green")
+        ax.add_patch(base)
+        ax.axis('image')
         plt.show()
 
     def inverse_kinematics(self, target_position: List[float],
                            target_orientation: Optional[float] = None,
                            mirror: bool = True,
                            debug: bool = False,
-                           plot: bool = False) -> None:
+                           ax: Axes = None) -> None:
 
         # Create ik object and call solve method
         ik = self.ik_alg(robot=self, target_position=target_position, target_orientation=target_orientation)
         ik.solve(debug=debug, mirror=mirror)
 
         # If solution to ik found and plot == True, plot the robot
-        if ik.solved and plot:
-            self.__plot(mirror=mirror, target_orientation=target_orientation)
+        if ik.solved and ax is not None:
+            self.__plot(ax=ax, mirror=mirror, target_orientation=target_orientation)
 
         # Debug provides detailed info, this is more for gui usage since terminal can run with debug=True
         # Not debug condition prevents double printing for terminal
@@ -204,11 +209,11 @@ class Robot:
 
     def forward_kinematics(self, target_configuration: List[float],
                            debug: bool = False,
-                           plot: bool = False) -> None:
+                           ax: Axes = None) -> None:
 
         # Create fk object and call method
         fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
         fk.forward_kinematics(debug=debug)
 
-        if plot:
-            self.__plot()
+        if ax is not None:
+            self.__plot(ax=ax)

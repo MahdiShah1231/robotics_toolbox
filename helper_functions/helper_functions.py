@@ -1,6 +1,8 @@
 from typing import Dict, List, Union, Tuple
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.patches import Circle
 
 
 def calculate_joint_angles(vertices: Dict[str, List[float]]) -> List[float]:
@@ -76,7 +78,10 @@ def find_new_vertex(link_length: float, vertex1: List[float], vertex2: List[floa
     return [adjusted_vertex2_x, adjusted_vertex2_y]
 
 
-def draw_environment(robot_base_radius: float, workspace_width: float = 950.0, workspace_height: float = 950.0) -> None:
+def draw_environment(ax: Axes,
+                     robot_base_radius: float,
+                     workspace_width: float = 950.0,
+                     workspace_height: float = 950.0) -> None:
     # Param inconsistencies
 
     vertices = [(0, -robot_base_radius),
@@ -84,9 +89,10 @@ def draw_environment(robot_base_radius: float, workspace_width: float = 950.0, w
                 (workspace_width, workspace_height - robot_base_radius),
                 (workspace_width, -robot_base_radius)]
 
-    plt.plot(*zip(*vertices), 'ko--')
-    obstacle = plt.Circle((530, 300), 75, color="black")
-    plt.gcf().gca().add_artist(obstacle)
+    ax.plot(*zip(*vertices), 'ko--')
+    # obstacle = ax.Circle((530, 300), 75, color="black")
+    obstacle = Circle((530, 300), 75, color="black")
+    ax.add_patch(obstacle)
 
 
 def check_link_lengths(link_lengths: List[float], vertices: Dict[str, List[float]]) -> None:
