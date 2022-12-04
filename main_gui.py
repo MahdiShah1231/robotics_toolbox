@@ -80,7 +80,6 @@ class Window(QMainWindow):
                 field_obj.editingFinished.connect(process_func)
 
     def _process_field(self, field_id, field_obj):
-        # TODO implement check for len joint config = len link lengths
         # TODO fix excepts
         if field_id in ["link_lengths", "joint_configuration", "robot_base_radius"]:
             field_value = field_obj.text()
@@ -88,7 +87,6 @@ class Window(QMainWindow):
                 if field_id == "link_lengths":
                     try:
                         self.link_lengths = [float(length) for length in field_value.split(",")]
-                        print(self.link_lengths)
                     except:
                         raise ValueError("Link lengths must be comma separated numbers")
 
@@ -198,6 +196,7 @@ class ControlWindow(QWidget):
         curr_xlims = self.canvas.axes.get_xlim()
         self.canvas.axes.cla()
         self.canvas.axes.set_ylim(-sum(self.robot.link_lengths), sum(self.robot.link_lengths))
+        self.canvas.axes.set_xlim(-sum(self.robot.link_lengths), sum(self.robot.link_lengths))
 
         if click_update:
             if not self.robot.linear_base:
@@ -208,7 +207,7 @@ class ControlWindow(QWidget):
         vertices = self.robot.vertices
         mirrored_vertices = self.robot.mirrored_vertices
 
-        if self.robot.linear_base is False:
+        if not self.robot.linear_base:
             robot_base_origin = self.robot.robot_base_origin
             self.canvas.axes.plot(vertices["x"], vertices["y"], 'go-')
             mirror_start_index = 0
@@ -249,7 +248,7 @@ class ControlWindow(QWidget):
                                                                                mirror=self.mirror, debug=False))
 
     def _process_field(self, field_name, field_obj):
-        if "Joint" in field_name: # TODO is this needed?
+        if "Joint" in field_name:
             field_value = field_obj.text()
             if field_value != "":
                 try:
@@ -280,7 +279,7 @@ class ControlWindow(QWidget):
 
 class VisualCanvas(FigureCanvasQTAgg):
 
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
+    def __init__(self, parent=None, width=8, height=4, dpi=100):
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
         super().__init__(self.fig)
