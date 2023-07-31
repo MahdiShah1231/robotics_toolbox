@@ -9,6 +9,7 @@ matplotlib = "*"
 sympy = "*"
 snakeviz = "*"
 transformations = "*"
+pyqt6 = "*"
 
 [dev-packages]
 
