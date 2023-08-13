@@ -1,10 +1,10 @@
 from functools import partial
 import sys
 import matplotlib
-matplotlib.use('Qt5Agg')
+matplotlib.use('QtAgg')
 
-from PyQt6.QtWidgets import QApplication, QLabel, QWidget, QLineEdit, QComboBox, QFormLayout, QRadioButton, QVBoxLayout, \
-    QPushButton, QMainWindow, QToolBar, QStatusBar, QTabWidget, QHBoxLayout, QSpacerItem, QSizePolicy
+from PyQt6.QtWidgets import QApplication, QWidget, QLineEdit, QComboBox, QFormLayout, QRadioButton, QVBoxLayout, \
+    QPushButton, QMainWindow, QToolBar, QHBoxLayout
 from PyQt6.QtCore import QTimer
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg

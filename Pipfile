@@ -6,9 +6,7 @@ name = "pypi"
 [packages]
 numpy = "*"
 matplotlib = "*"
-sympy = "*"
-snakeviz = "*"
-transformations = "*"
+pyqt6 = "*"
 
 [dev-packages]
 
