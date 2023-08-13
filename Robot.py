@@ -1,7 +1,6 @@
 from typing import List, Any, Optional, Union
 
 import numpy as np
-from PIL import Image
 from matplotlib import pyplot as plt
 from InverseKinematics import Fabrik
 from ForwardKinematics import ForwardKinematics
