@@ -1,17 +1,17 @@
 import numpy as np
 from helper_functions.helper_functions import calculate_joint_angles, wrap_angles_to_pi
-from typing import TYPE_CHECKING, List, Dict
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from Robot import Robot
+    from robot import Robot
 
 
 class ForwardKinematics:
-    def __init__(self, robot: 'Robot', target_configuration: List[float]) -> None:
+    def __init__(self, robot: 'Robot', target_configuration: list[float]) -> None:
         self.__robot = robot
         self.__target_configuration = wrap_angles_to_pi(target_configuration)
 
-    def forward_kinematics(self, debug: bool) -> Dict[str, List[float]]:
+    def forward_kinematics(self, debug: bool) -> dict[str, list[float]]:
         # Need to dummy joint angle for the linear prismatic joint to avoid indexing error
         start_idx = 0
         if self.__robot.linear_base:
