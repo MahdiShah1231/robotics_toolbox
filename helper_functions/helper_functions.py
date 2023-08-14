@@ -1,18 +1,20 @@
-from typing import Dict, List, Union, Tuple
+from typing import Union
 import numpy as np
 from matplotlib import pyplot as plt
 
 
-def calculate_joint_angles(vertices: Dict[str, List[float]]) -> List[float]:
+def calculate_joint_angles(vertices: dict[str, list[float]], linear_base: bool) -> list[float]:
     joint_angles = [0.0] * (len(vertices["x"]) - 1)
     old_direction_vector = [1, 0]  # Starting reference vector (taking angle from positive x)
     last_vertex_index = len(vertices["x"]) - 1
+    start_vertex_index = 0 if not linear_base else 1
 
     # Looping through vertices to calculate angles between the links using linear algebra
-    for vertex_index in range(last_vertex_index):
+    for vertex_index in range(start_vertex_index, last_vertex_index):
         vertex = [vertices["x"][vertex_index], vertices["y"][vertex_index]]
         vertex_ahead = [vertices["x"][vertex_index + 1], vertices["y"][vertex_index + 1]]
         new_direction_vector = np.subtract(vertex_ahead, vertex)
+        new_direction_vector = new_direction_vector / np.linalg.norm(new_direction_vector)
 
         # in 2D, cross product of 2 vectors: A X B = |A|*|B|*Sin(theta)
         # Dot product: A . B = |A|*|B|*Cos(theta)
@@ -55,7 +57,7 @@ def wrap_angle_to_pi(angle: float) -> Union[float, None]:
     return wrapped_angle
 
 
-def wrap_angles_to_pi(angles: Union[List[float], float]) -> Union[List[float], None]:
+def wrap_angles_to_pi(angles: Union[list[float], float]) -> Union[list[float], None]:
     if angles is not None:
         # Call wrap_angle_to_pi on given list of angles
         wrapped_angles = list(map(wrap_angle_to_pi, angles))
@@ -67,7 +69,7 @@ def wrap_angles_to_pi(angles: Union[List[float], float]) -> Union[List[float], N
     return wrapped_angles
 
 
-def find_new_vertex(link_length: float, vertex1: List[float], vertex2: List[float]) -> List[float]:
+def find_new_vertex(link_length: float, vertex1: list[float], vertex2: list[float]) -> list[float]:
     direction_vector = np.subtract(vertex2, vertex1)  # Pointing from v1 -> v2
     length = np.linalg.norm(direction_vector)
     scaled_direction_vector = (direction_vector / length) * link_length
@@ -89,7 +91,7 @@ def draw_environment(robot_base_radius: float, workspace_width: float = 950.0, w
     plt.gcf().gca().add_artist(obstacle)
 
 
-def check_link_lengths(link_lengths: List[float], vertices: Dict[str, List[float]]) -> None:
+def check_link_lengths(link_lengths: list[float], vertices: list[str, list[float]]) -> None:
 
     # Checking links from first to last
     for i in range(len(vertices["x"]) - 1):
@@ -104,7 +106,7 @@ def check_link_lengths(link_lengths: List[float], vertices: Dict[str, List[float
                                                           f" {link_length, new_link_length}"
 
 
-def validate_target(target: List[float], linear_base: bool, robot_length: float) -> Tuple[bool, float]:
+def validate_target(target: list[float], linear_base: bool, robot_length: float) -> tuple[bool, float]:
     valid_target = False
 
     if linear_base:

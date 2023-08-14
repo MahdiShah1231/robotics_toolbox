@@ -16,7 +16,6 @@ class ForwardKinematics:
         start_idx = 0
         if self.__robot.linear_base:
             start_idx = 1  # Skipping first link since the prismatic joint wont be controlled through FK
-            self.__target_configuration.insert(0, 0.0)
 
         reference_angle = 0
         for link_index in range(start_idx, self.__robot.n_links):
@@ -32,7 +31,7 @@ class ForwardKinematics:
             self.__robot.vertices["y"][link_index + 1] = new_vertex[1]
 
             reference_angle += self.__target_configuration[link_index]
-        self.__robot.joint_configuration = calculate_joint_angles(self.__robot.vertices)
+        self.__robot.joint_configuration = calculate_joint_angles(self.__robot.vertices, self.__robot.linear_base)
         if debug:
             print("Final robot configuration:")
             print(self.__robot.joint_configuration)
