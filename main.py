@@ -1,16 +1,15 @@
-from typing import List, Optional, Any
-
+from typing import Union
 import numpy as np
-from Robot import Robot
-from InverseKinematics import Fabrik
+from robot import Robot
+from inverse_kinematics import Fabrik
 
 
-def create_robot(link_lengths: List[float],
-                 ik_alg: Optional[Any] = None,
-                 joint_configuration: Optional[List[float]] = None,
-                 robot_base_radius: Optional[float] = None,
+def create_robot(link_lengths: list[float],
+                 ik_alg=None,
+                 joint_configuration: list[float] = None,
+                 robot_base_radius: float = None,
                  linear_base: bool = False,
-                 environment: Any = None) -> Robot:
+                 environment: Union[str, list[float]] = None) -> Robot:
 
     robot = Robot(link_lengths=link_lengths,
                   ik_alg=ik_alg,
@@ -22,8 +21,8 @@ def create_robot(link_lengths: List[float],
 
 
 def inverse_kinematics(robot: Robot,
-                       target_position: List[float],
-                       target_orientation: Optional[float] = None,
+                       target_position: list[float],
+                       target_orientation: float = None,
                        mirror: bool = True,
                        debug: bool = False,
                        plot: bool = True) -> None:
@@ -36,7 +35,7 @@ def inverse_kinematics(robot: Robot,
 
 
 def forward_kinematics(robot: Robot,
-                       target_configuration: List[float],
+                       target_configuration: list[float],
                        debug: bool = False,
                        plot: bool = True) -> None:
     robot.forward_kinematics(target_configuration=target_configuration, debug=debug, plot=plot)

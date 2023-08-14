@@ -1,21 +1,20 @@
-from typing import List, Any, Optional, Union
-
+from typing import Union
 import numpy as np
 from matplotlib import pyplot as plt
-from InverseKinematics import Fabrik
-from ForwardKinematics import ForwardKinematics
+from inverse_kinematics import Fabrik
+from forward_kinematics import ForwardKinematics
 from helper_functions.helper_functions import wrap_angles_to_pi, draw_environment
 
 SCALE_TO_MM = 1000
 
 
 class Robot:
-    def __init__(self, link_lengths: List[float],
-                 ik_alg: Any = Fabrik,
-                 joint_configuration: Optional[List[float]] = None,
+    def __init__(self, link_lengths: list[float],
+                 ik_alg,
+                 joint_configuration: list[float] = None,
                  robot_base_radius: float = 0.1,
                  linear_base: bool = False,
-                 environment: Union[str, List[float]] = None) -> None:
+                 environment: Union[str, list[float]] = None) -> None:
 
         self.__link_lengths = list(map(lambda x: float(x) * SCALE_TO_MM, link_lengths))  # Scaling links from m to mm
         self.__ik_alg = ik_alg
@@ -182,8 +181,8 @@ class Robot:
         plt.axis('image')
         plt.show()
 
-    def inverse_kinematics(self, target_position: List[float],
-                           target_orientation: Optional[float] = None,
+    def inverse_kinematics(self, target_position: list[float],
+                           target_orientation: float = None,
                            mirror: bool = True,
                            debug: bool = False,
                            plot: bool = False) -> None:
@@ -201,7 +200,7 @@ class Robot:
         elif not ik.solved and not debug:
             print("IK cannot be solved. Pick a more appropriate target")
 
-    def forward_kinematics(self, target_configuration: List[float],
+    def forward_kinematics(self, target_configuration: list[float],
                            debug: bool = False,
                            plot: bool = False) -> None:
 

@@ -9,7 +9,7 @@ from PyQt6.QtCore import QTimer
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from Robot import Robot, Fabrik
+from robot import Robot, Fabrik
 
 
 class Window(QMainWindow):
