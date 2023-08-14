@@ -121,7 +121,7 @@ class Robot:
             arm_joint_configuration = self.joint_configuration
 
         # Call forward kinematics to move the robot to the starting joint_configuration
-        self.forward_kinematics(target_configuration=arm_joint_configuration, debug=False, plot=False)
+        self.forward_kinematics(target_configuration=arm_joint_configuration, debug=False, plot=False, enable_animation=False)
         self.mirrored_vertices = self.vertices  # Mirrored vertices set to prevent crashes for gui
 
     def _plot(self, ax: Axes, canvas=None, mirror: bool = False, target_orientation: float = None) -> None:
@@ -205,9 +205,6 @@ class Robot:
 
         elif traj_type == 'fk':
             target_configuration = kwargs.get('target_configuration')
-            if self.linear_base:
-                # For an FK trajectory we are not concerned with controlling the linear base (prismatic joint)
-                target_configuration.insert(0, self.link_lengths[0])
             for joint_idx, joint_target in enumerate(target_configuration):
                 current_joint_val = self.joint_configuration[joint_idx]
                 traj_gen = self.__trajectory_generator((current_joint_val, joint_target))
@@ -240,6 +237,10 @@ class Robot:
                            debug: bool = False,
                            plot: bool = False,
                            enable_animation: bool = True) -> None:
+        if self.linear_base:
+            # For an FK command we are not concerned with controlling the linear base (prismatic joint)
+            target_configuration.insert(0, self.link_lengths[0])
+
         if not enable_animation:
             # Create fk object and call method
             fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
