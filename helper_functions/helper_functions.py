@@ -91,7 +91,7 @@ def draw_environment(robot_base_radius: float, workspace_width: float = 950.0, w
     plt.gcf().gca().add_artist(obstacle)
 
 
-def check_link_lengths(link_lengths: list[float], vertices: list[str, list[float]]) -> None:
+def check_link_lengths(link_lengths: list[float], vertices: dict[str, list[float]]) -> None:
 
     # Checking links from first to last
     for i in range(len(vertices["x"]) - 1):

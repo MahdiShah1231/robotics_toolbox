@@ -1,3 +1,5 @@
+import copy
+from functools import partial
 from typing import Union
 import numpy as np
 from matplotlib import pyplot as plt
@@ -44,6 +46,10 @@ class Robot:
     @property
     def link_lengths(self):
         return self.__link_lengths
+
+    @link_lengths.setter
+    def link_lengths(self, new_lengths):
+        self.__link_lengths = new_lengths
 
     @property
     def ik_alg(self):
@@ -185,28 +191,45 @@ class Robot:
         fk.forward_kinematics(debug=False)
         self._plot(plt.gca())
 
+    def animated_ik_plot(self, ik_params, mirror):
+        if self.linear_base:
+            rail_increment, *target_configuration = ik_params
+            fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
+            fk.forward_kinematics(debug=False)
+            self.move_rail(rail_increment)
+        else:
+            target_configuration = ik_params
+            fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
+            fk.forward_kinematics(debug=False)
+        self._plot(plt.gca(), mirror=mirror)
+
     def get_trajectory(self, traj_type, **kwargs):
         traj = []
 
         if traj_type == 'ik':
-            ee_current_pos = [self.vertices["x"][-1], self.vertices["y"][-1]]
-            ee_current_pos = [current_pos / 1000 for current_pos in ee_current_pos]
             target_position = kwargs.get('target_position')
             target_orientation = kwargs.get('target_orientation')
-            for idx, coordinate_target in enumerate(target_position):
-                pos_traj_gen = self.__trajectory_generator((ee_current_pos[idx], target_position[idx]))
-                _, joint_pos_setpoints = pos_traj_gen.solve_traj()
-                traj.append(joint_pos_setpoints)
-            if target_orientation is not None:
-                orientation_traj_gen = self.__trajectory_generator((self.joint_configuration[-1], target_orientation))
-                _, orientation_setpoints = orientation_traj_gen.solve_traj()
-                traj.append(orientation_setpoints)
+
+            # Solve IK to get the joint configuration at the target position and create joint space trajectory
+            ik = self.ik_alg(robot=self, target_position=target_position, target_orientation=target_orientation)
+            target_configuration, mirrored_configuration = ik.solve(debug=False, mirror=False, move=False)
+
+            for joint_idx, joint_target in enumerate(target_configuration):
+                current_joint_value = self.joint_configuration[joint_idx]
+                traj_gen = self.__trajectory_generator((current_joint_value, joint_target))
+                _, joint_setpoints = traj_gen.solve_traj()
+                traj.append(joint_setpoints)
+
             traj = list(zip(*traj))
 
         elif traj_type == 'fk':
             target_configuration = kwargs.get('target_configuration')
             for joint_idx, joint_target in enumerate(target_configuration):
-                current_joint_val = self.joint_configuration[joint_idx]
+                if self.linear_base:
+                    arm_joint_index = joint_idx + 1
+                else:
+                    arm_joint_index = joint_idx
+                current_joint_val = self.joint_configuration[arm_joint_index]
                 traj_gen = self.__trajectory_generator((current_joint_val, joint_target))
                 _, joint_setpoints = traj_gen.solve_traj()
                 traj.append(joint_setpoints)
@@ -214,32 +237,58 @@ class Robot:
 
         return traj
 
+    def move_rail(self, rail_length):
+        if not self.linear_base:
+            raise Exception("Cant move rail, no rail configured.")
+        # Maintain x distances between vertices
+
+        # Shift all vertices by an increment relative to starting position
+        old_base_pos = self.vertices["x"][1]
+        self.vertices["x"][1] = rail_length + self.robot_base_origin[0]  ## 831 + 100 = 931
+
+        relative_change = self.vertices["x"][1] - old_base_pos
+        for joint_idx, joint_val in enumerate(self.vertices["x"][2::]):
+            self.vertices["x"][joint_idx+1] += relative_change
+
+        new_link_lengths = copy.deepcopy(self.link_lengths)
+        new_link_lengths[0] = rail_length
+        self.link_lengths = new_link_lengths
+        self.joint_configuration[0] = new_link_lengths[0]
+
     def inverse_kinematics(self, target_position: list[float],
                            target_orientation: float = None,
                            mirror: bool = True,
                            debug: bool = False,
-                           plot: bool = False) -> None:
+                           move: bool = True,
+                           plot: bool = False,
+                           enable_animation: bool = True) -> None:
 
-        # Create ik object and call solve method
-        ik = self.ik_alg(robot=self, target_position=target_position, target_orientation=target_orientation)
-        ik.solve(debug=debug, mirror=mirror)
+        if not enable_animation:
+            # Create ik object and call solve method
+            ik = self.ik_alg(robot=self, target_position=target_position, target_orientation=target_orientation)
+            ik.solve(debug=debug, mirror=mirror, move=move)
 
-        # If solution to ik found and plot == True, plot the robot
-        if ik.solved and plot:
-            self._plot(mirror=mirror, target_orientation=target_orientation)
+            # If solution to ik found and plot == True, plot the robot
+            if ik.solved and plot:
+                fig, ax = plt.subplots()
+                self._plot(ax=ax, mirror=mirror, target_orientation=target_orientation)
 
-        # Debug provides detailed info, this is more for gui usage since terminal can run with debug=True
-        # Not debug condition prevents double printing for terminal
-        elif not ik.solved and not debug:
-            print("IK cannot be solved. Pick a more appropriate target")
+            # Debug provides detailed info, this is more for gui usage since terminal can run with debug=True
+            # Not debug condition prevents double printing for terminal
+            elif not ik.solved and not debug:
+                print("IK cannot be solved. Pick a more appropriate target")
+
+        else:
+            ik_traj = self.get_trajectory('ik', target_position=target_position, target_orientation=target_orientation)
+            fig, ax = plt.subplots()
+            animated_ik_plot_func = partial(self.animated_ik_plot, mirror=mirror)
+            ani = animation.FuncAnimation(fig, animated_ik_plot_func, ik_traj, interval=1, repeat=False)
+            plt.show()
 
     def forward_kinematics(self, target_configuration: list[float],
                            debug: bool = False,
                            plot: bool = False,
                            enable_animation: bool = True) -> None:
-        if self.linear_base:
-            # For an FK command we are not concerned with controlling the linear base (prismatic joint)
-            target_configuration.insert(0, self.link_lengths[0])
 
         if not enable_animation:
             # Create fk object and call method
