@@ -37,8 +37,12 @@ def inverse_kinematics(robot: Robot,
 def forward_kinematics(robot: Robot,
                        target_configuration: list[float],
                        debug: bool = False,
-                       plot: bool = True) -> None:
-    robot.forward_kinematics(target_configuration=target_configuration, debug=debug, plot=plot)
+                       plot: bool = True,
+                       enable_animation: bool = True) -> None:
+    robot.forward_kinematics(target_configuration=target_configuration,
+                             debug=debug,
+                             plot=plot,
+                             enable_animation=enable_animation)
 
 
 if __name__ == '__main__':
