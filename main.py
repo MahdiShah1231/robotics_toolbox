@@ -52,5 +52,5 @@ if __name__ == '__main__':
                      robot_base_radius=0.1,
                      linear_base=True,
                      environment=None)
-    # inverse_kinematics(robot=r, target_position=[0.5, 0.6], target_orientation=np.pi / 2, mirror=True, debug=False)
-    forward_kinematics(robot=r, target_configuration=[0, np.pi/2, -np.pi/2], debug=False)
+    inverse_kinematics(robot=r, target_position=[0.5, 0.6], target_orientation=np.pi / 2, mirror=True, debug=False)
+    # forward_kinematics(robot=r, target_configuration=[0, np.pi/2, -np.pi/2], debug=False)

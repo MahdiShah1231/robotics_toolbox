@@ -25,8 +25,10 @@ class Fabrik:
         self.__max_iterations = max_iterations
         self.solved = False
 
-    def solve(self, debug: bool, mirror: bool) -> dict[str, list[float]]:
+    def solve(self, debug: bool, mirror: bool, move: bool) -> tuple[list[float], list[float]]:
         iterations = 0
+        joint_configuration = self.__robot.joint_configuration
+        mirrored_joint_configuration = None
 
         # First validate target before attempting to compute solution
         valid_target, effective_target_distance = validate_target(target=self.__target_position,
@@ -82,54 +84,57 @@ class Fabrik:
             error_vector = np.subtract(ee_position_target, ee_position_actual)
             error = np.linalg.norm(error_vector)
 
+            vertices = copy.deepcopy(self.__robot.vertices)
+            link_lengths = copy.deepcopy(self.__robot.link_lengths)
+
             while error > self.__error_tolerance and iterations < self.__max_iterations:
                 iterations += 1
                 if iterations % 2 != 0:  # Odd iteration = backward iteration
                     # First step of backwards iteration is to move last vertex to the target
-                    self.__robot.vertices["x"][-1] = self.__target_position[0]
-                    self.__robot.vertices["y"][-1] = self.__target_position[1]
+                    vertices["x"][-1] = self.__target_position[0]
+                    vertices["y"][-1] = self.__target_position[1]
 
                     if self.__target_orientation is not None:
                         # Setting second last vertex to give the correct target orientation of last link
-                        self.__robot.vertices["x"][-2] = self.__robot.vertices["x"][-1] - oriented_last_link[0]
-                        self.__robot.vertices["y"][-2] = self.__robot.vertices["y"][-1] - oriented_last_link[1]
+                        vertices["x"][-2] = vertices["x"][-1] - oriented_last_link[0]
+                        vertices["y"][-2] = vertices["y"][-1] - oriented_last_link[1]
 
                     # Only setting the arm links
                     # Vertex i is the start of link i
                     # When iterating backwards, the ahead vertex is the start of the current link, and back vertex
                     # is the end of the current link.
                     for vertex_index in reversed(range(arm_start_link_idx, last_unset_arm_link_idx + 1)):
-                        link_length = self.__robot.link_lengths[vertex_index]
+                        link_length = link_lengths[vertex_index]
 
-                        behind_vertex = [self.__robot.vertices["x"][vertex_index + 1],
-                                         self.__robot.vertices["y"][vertex_index + 1]]
-                        ahead_vertex = [self.__robot.vertices["x"][vertex_index],
-                                        self.__robot.vertices["y"][vertex_index]]
+                        behind_vertex = [vertices["x"][vertex_index + 1],
+                                         vertices["y"][vertex_index + 1]]
+                        ahead_vertex = [vertices["x"][vertex_index],
+                                        vertices["y"][vertex_index]]
 
                         # Adjust the ahead vertex based on the link length and direction
                         new_ahead_vertex = find_new_vertex(link_length=link_length,
                                                            vertex1=behind_vertex,
                                                            vertex2=ahead_vertex)
 
-                        self.__robot.vertices["x"][vertex_index] = new_ahead_vertex[0]
-                        self.__robot.vertices["y"][vertex_index] = new_ahead_vertex[1]
+                        vertices["x"][vertex_index] = new_ahead_vertex[0]
+                        vertices["y"][vertex_index] = new_ahead_vertex[1]
 
                     if self.__robot.linear_base:
                         # Base position is the end of the prismatic link
                         # Base position target arbitrarily anywhere on x axis if linear base enabled
-                        robot_base_pos_current = [self.__robot.vertices["x"][1], self.__robot.vertices["y"][1]]
-                        robot_base_pos_target = [self.__robot.vertices["x"][1], 0]
+                        robot_base_pos_current = [vertices["x"][1], vertices["y"][1]]
+                        robot_base_pos_target = [vertices["x"][1], 0]
 
                         # Base offset vec is the distance the prismatic joint needs to extend to go from
                         # origin -> current pos
                         base_offset_vec = np.subtract(robot_base_pos_current, self.__robot.robot_base_origin)
                         base_offset = base_offset_vec[0]  # Only care about x distance
-                        self.__robot.link_lengths[0] = abs(base_offset)  # Updating prismatic link length
+                        link_lengths[0] = abs(base_offset)  # Updating prismatic link length
 
                     else:
                         # Base position is start of the robot arm
                         # Base position target at the robot base origin
-                        robot_base_pos_current = [self.__robot.vertices["x"][0], self.__robot.vertices["y"][0]]
+                        robot_base_pos_current = [vertices["x"][0], vertices["y"][0]]
                         robot_base_pos_target = self.__robot.robot_base_origin
 
                     error_vector = np.subtract(robot_base_pos_current, robot_base_pos_target)
@@ -138,35 +143,36 @@ class Fabrik:
                 else:  # Even iteration = forward iteration
                     # First step of forward iteration is to reset the robot base position
                     # TODO check if this is needed for all cases or only if no linear base
-                    self.__robot.vertices["x"][0] = self.__robot.robot_base_origin[0]
-                    self.__robot.vertices["y"][0] = self.__robot.robot_base_origin[1]
+                    vertices["x"][0] = self.__robot.robot_base_origin[0]
+                    vertices["y"][0] = self.__robot.robot_base_origin[1]
                     if self.__robot.linear_base:
-                        self.__robot.vertices["y"][1] = self.__robot.robot_base_origin[1]
+                        vertices["y"][1] = self.__robot.robot_base_origin[1]
+                        vertices["x"][1] = robot_base_pos_current[0]
 
                     for vertex_index in range(arm_start_link_idx, last_unset_arm_link_idx + 1):
-                        link_length = self.__robot.link_lengths[vertex_index]
+                        link_length = link_lengths[vertex_index]
 
-                        behind_vertex = [self.__robot.vertices["x"][vertex_index],
-                                         self.__robot.vertices["y"][vertex_index]]
-                        ahead_vertex = [self.__robot.vertices["x"][vertex_index + 1],
-                                        self.__robot.vertices["y"][vertex_index + 1]]
+                        behind_vertex = [vertices["x"][vertex_index],
+                                         vertices["y"][vertex_index]]
+                        ahead_vertex = [vertices["x"][vertex_index + 1],
+                                        vertices["y"][vertex_index + 1]]
 
                         # Adjust the ahead vertex based on the link length and direction
                         new_ahead_vertex = find_new_vertex(link_length=link_length,
                                                            vertex1=behind_vertex,
                                                            vertex2=ahead_vertex)
 
-                        self.__robot.vertices["x"][vertex_index + 1] = new_ahead_vertex[0]
-                        self.__robot.vertices["y"][vertex_index + 1] = new_ahead_vertex[1]
+                        vertices["x"][vertex_index + 1] = new_ahead_vertex[0]
+                        vertices["y"][vertex_index + 1] = new_ahead_vertex[1]
 
                     if self.__target_orientation is not None:
                         # Resetting last arm vertex to give correct orientation from the second last vertex
                         # Second last vertex is the last vertex set in the forward iteration if a targ orientation given
-                        self.__robot.vertices["x"][-1] = self.__robot.vertices["x"][-2] + oriented_last_link[0]
-                        self.__robot.vertices["y"][-1] = self.__robot.vertices["y"][-2] + oriented_last_link[1]
+                        vertices["x"][-1] = vertices["x"][-2] + oriented_last_link[0]
+                        vertices["y"][-1] = vertices["y"][-2] + oriented_last_link[1]
 
-                    ee_position_actual = [self.__robot.vertices["x"][ee_vertex_index],
-                                          self.__robot.vertices["y"][ee_vertex_index]]
+                    ee_position_actual = [vertices["x"][ee_vertex_index],
+                                          vertices["y"][ee_vertex_index]]
                     error_vector = np.subtract(ee_position_target, ee_position_actual)
                     error = np.linalg.norm(error_vector)
 
@@ -174,20 +180,31 @@ class Fabrik:
                 print("Could not solve.")
                 print(f"error: {error}\n")
                 if debug:
-                    check_link_lengths(link_lengths=self.__robot.link_lengths, vertices=self.__robot.vertices)
+                    check_link_lengths(link_lengths=link_lengths, vertices=vertices)
                     print("\nVertices: ")
-                    print(self.__robot.vertices)
+                    print(vertices)
 
             else:  # Solution found
                 # Calculate joint angles for the solution
-                self.__robot.joint_configuration = calculate_joint_angles(self.__robot.vertices)
+                joint_configuration = calculate_joint_angles(vertices=vertices, linear_base=self.__robot.linear_base)
+                if self.__robot.linear_base:
+                    joint_configuration[0] = link_lengths[0] * np.sign(vertices["x"][1])
 
                 if mirror:
                     # Find the vertices and joint angles for the mirrored solution
-                    self.__mirrored_elbows()
-                    self.__robot.mirrored_joint_configuration = calculate_joint_angles(self.__robot.mirrored_vertices)
+                    mirrored_vertices = self._get_mirror_configuration(vertices)
+                    mirrored_joint_configuration = calculate_joint_angles(vertices=mirrored_vertices, linear_base=self.__robot.linear_base)
+                    mirrored_joint_configuration[0] = joint_configuration[0]
 
                 self.solved = True
+
+                if move:
+                    self.__robot.vertices = vertices
+                    self.__robot.joint_configuration = joint_configuration
+                    self.__robot.link_lengths = link_lengths
+                    if mirror:
+                        self.__robot.mirrored_vertices = mirrored_vertices
+                        self.__robot.mirrored_joint_configuration = mirrored_joint_configuration
 
                 if debug:
                     print("\nPrinting debugging info...")
@@ -205,22 +222,22 @@ class Fabrik:
                                            vertices=self.__robot.mirrored_vertices)
                     print(f"\nSolution found in {iterations} iterations")
 
-        return self.__robot.vertices
+        return joint_configuration, mirrored_joint_configuration
 
-    def __mirrored_elbows(self) -> dict[str, list[float]]:
-        self.__robot.mirrored_vertices = copy.deepcopy(self.__robot.vertices)  # Start by copying current vertices
+    def _get_mirror_configuration(self, vertices) -> dict[str, list[float]]:
+        mirrored_vertices = copy.deepcopy(vertices)  # Start by copying current vertices
 
         # The first robot arm vertex is where the mirror line starts
         mirror_line_start_vertex_index = 0 if not self.__robot.linear_base else 1
-        mirror_line_start_vertex = [self.__robot.mirrored_vertices["x"][mirror_line_start_vertex_index],
-                                    self.__robot.mirrored_vertices["y"][mirror_line_start_vertex_index]]
+        mirror_line_start_vertex = [mirrored_vertices["x"][mirror_line_start_vertex_index],
+                                    mirrored_vertices["y"][mirror_line_start_vertex_index]]
 
         # The mirror line ends at the last vertex if theres no orientation, or second last if there is an orientation
         # n_links updates based on if a linear base exists.
         # vertices[n_links] = last vertex, vertices[n_links - 1] = second last vertex
         mirror_line_last_vertex_index = self.__robot.n_links if self.__target_orientation is None else self.__robot.n_links - 1
-        mirror_line_last_vertex = [self.__robot.mirrored_vertices["x"][mirror_line_last_vertex_index],
-                                   self.__robot.mirrored_vertices["y"][mirror_line_last_vertex_index]]
+        mirror_line_last_vertex = [mirrored_vertices["x"][mirror_line_last_vertex_index],
+                                   mirrored_vertices["y"][mirror_line_last_vertex_index]]
 
         mirror_vec = np.subtract(mirror_line_last_vertex, mirror_line_start_vertex)
         mirror_vec_length = np.linalg.norm(mirror_vec)
@@ -229,8 +246,8 @@ class Fabrik:
         # Iterate through points not including the start and end as they are on the mirror line so don't get transformed
         # Mirroring vertices using the vector line formed between the mirror start vertex and the vertex
         for vertex_index in range(mirror_line_start_vertex_index + 1, mirror_line_last_vertex_index):
-            vertex = [self.__robot.mirrored_vertices["x"][vertex_index],
-                      self.__robot.mirrored_vertices["y"][vertex_index]]
+            vertex = [mirrored_vertices["x"][vertex_index],
+                      mirrored_vertices["y"][vertex_index]]
 
             direction_vector = np.subtract(vertex, mirror_line_start_vertex)
             length = np.linalg.norm(direction_vector)
@@ -241,10 +258,10 @@ class Fabrik:
             translation_direction = np.subtract(midpoint, vertex)  # direction vector pointing vertex -> mirrored vertex
             mirrored_vertex = vertex + (2 * translation_direction)  # Using symmetry (vertex -> midpoint = midpoint -> mirrored verted)
 
-            self.__robot.mirrored_vertices["x"][vertex_index] = mirrored_vertex[0]
-            self.__robot.mirrored_vertices["y"][vertex_index] = mirrored_vertex[1]
+            mirrored_vertices["x"][vertex_index] = mirrored_vertex[0]
+            mirrored_vertices["y"][vertex_index] = mirrored_vertex[1]
 
-        return self.__robot.mirrored_vertices
+        return mirrored_vertices
 
     def check_collisions(self):
         raise NotImplementedError

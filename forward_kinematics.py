@@ -16,6 +16,8 @@ class ForwardKinematics:
         start_idx = 0
         if self.__robot.linear_base:
             start_idx = 1  # Skipping first link since the prismatic joint wont be controlled through FK
+            # For an FK command we are not concerned with controlling the linear base (prismatic joint)
+            self.__target_configuration.insert(0, self.__robot.link_lengths[0])
 
         reference_angle = 0
         for link_index in range(start_idx, self.__robot.n_links):
