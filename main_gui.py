@@ -1,15 +1,19 @@
 from functools import partial
 import sys
 import matplotlib
-matplotlib.use('QtAgg')
 
-from PyQt6.QtWidgets import QApplication, QWidget, QLineEdit, QComboBox, QFormLayout, QRadioButton, QVBoxLayout, \
+from forward_kinematics import ForwardKinematics
+
+matplotlib.use('Qt5Agg')
+
+from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QComboBox, QFormLayout, QRadioButton, QVBoxLayout, \
     QPushButton, QMainWindow, QToolBar, QHBoxLayout
-from PyQt6.QtCore import QTimer
+from PyQt5.QtCore import QTimer
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-from robot import Robot, Fabrik
+from robot import Robot
+from inverse_kinematics import Fabrik
 
 
 class Window(QMainWindow):
@@ -130,12 +134,14 @@ class ControlWindow(QWidget):
         self.ik_target_position = [self.robot.vertices['x'][-1], self.robot.vertices['y'][-1]]
         self.ik_target_orientation = None
         self.mirror = False
-
         self.canvas = None
+
+        # Setting up timer to update GUI
         self.timer = QTimer()
         self.timer.setInterval(100)
-        self.timer.timeout.connect(self._update_canvas)
-        self.timer.start()
+        self.timer.timeout.connect(self._update_canvas_dynamic)
+        self.animation_func = None  # Method to animate trajectory (IK or FK)
+        self.traj = []  # List of setpoints to traverse for active trajectory
 
         self._create_window()
 
@@ -180,54 +186,47 @@ class ControlWindow(QWidget):
     def _create_visual_canvas(self, layout):
         self.canvas = VisualCanvas(self)
         layout.addWidget(self.canvas)
-        self.canvas.mpl_connect('button_press_event', self.onclick)
-        self._update_canvas()
 
-    def onclick(self, event):
+        # Allowing click commands to send IK to mouse click
+        self.canvas.mpl_connect('button_press_event', self.on_click)
+
+        # Start QTimer to update visual canvas
+        self.timer.start()
+
+    def on_click(self, event):
         self.ik_target_position = [event.xdata/1000.0, event.ydata/1000.0]
-        self.robot.inverse_kinematics(target_position=self.ik_target_position,
-                                      target_orientation=self.ik_target_orientation,
-                                      mirror=self.mirror, debug=False)
-        self._update_canvas(click_update=True)
+        self.get_traj("ik", target_position=self.ik_target_position, target_orientation=self.ik_target_orientation)
 
-    # TODO need to fix the x axis somehow, makes click control a bit awkward when the linear base is active
     # TODO implement click and drag
-    def _update_canvas(self, click_update=False):
-        curr_xlims = self.canvas.axes.get_xlim()
-        self.canvas.axes.cla()
-        self.canvas.axes.set_ylim(-sum(self.robot.link_lengths), sum(self.robot.link_lengths))
-        self.canvas.axes.set_xlim(-sum(self.robot.link_lengths), sum(self.robot.link_lengths))
-
-        if click_update:
-            if not self.robot.linear_base:
-                self.canvas.axes.set_xlim(-sum(self.robot.link_lengths), sum(self.robot.link_lengths))
-            else:
-                self.canvas.axes.set_xlim(curr_xlims[0], curr_xlims[1])
-
-        vertices = self.robot.vertices
-        mirrored_vertices = self.robot.mirrored_vertices
-
-        if not self.robot.linear_base:
-            robot_base_origin = self.robot.robot_base_origin
-            self.canvas.axes.plot(vertices["x"], vertices["y"], 'go-')
-            mirror_start_index = 0
+    def _update_canvas_dynamic(self):
+        if len(self.traj) != 0:
+            while len(self.traj) > 0:
+                config = self.traj.pop(0)
+                self.animation_func(config)
+                self.robot._plot(ax=self.canvas.axes, canvas=self.canvas, mirror=self.mirror)
         else:
-            robot_base_origin = (vertices["x"][1], vertices["y"][1])
-            self.canvas.axes.plot(vertices["x"][0:2], vertices["y"][0:2], 'bo--')
-            self.canvas.axes.plot(vertices["x"][1:], vertices["y"][1:], 'go-')
-            mirror_start_index = 1
+            self.robot._plot(ax=self.canvas.axes, canvas=self.canvas, mirror=self.mirror)
 
-        if self.mirror:
-            if self.ik_target_orientation is None:
-                self.canvas.axes.plot(mirrored_vertices["x"][mirror_start_index:],
-                         mirrored_vertices["y"][mirror_start_index:], 'ro-')
-            else:
-                self.canvas.axes.plot(mirrored_vertices["x"][mirror_start_index:-1],
-                         mirrored_vertices["y"][mirror_start_index:-1], 'ro-')
+    def get_traj(self, traj_type, **kwargs):
+        if traj_type == "fk":
+            self.animation_func = self.move_arm_fk
+        elif traj_type == "ik":
+            self.animation_func = self.move_arm_ik
+        self.traj = self.robot.get_trajectory(traj_type, **kwargs)
 
-        # base = Circle(robot_base_origin, self.robot.robot_base_radius, color="green")
-        # self.canvas.axes.add_patch(base)
-        self.canvas.draw()
+    def move_arm_fk(self, target_config):
+        fk = ForwardKinematics(robot=self.robot, target_configuration=target_config)
+        fk.forward_kinematics(debug=False)
+
+    def move_arm_ik(self, target_config):
+        # If robot has linear base, separate movement for the arm joints and the prismatic base joint.
+        # Arm movement always handled by FK.
+        if self.robot.linear_base:
+            rail_target, *joint_target = target_config
+            self.move_arm_fk(joint_target)
+            self.robot.move_rail(rail_target)
+        else:
+            self.move_arm_fk(target_config)
 
     def _connect_signals(self, fk_data_fields, ik_data_fields, buttons):
         for joint_name, joint_field_obj in fk_data_fields.items():
@@ -241,11 +240,9 @@ class ControlWindow(QWidget):
             else:
                 field_obj.editingFinished.connect(process_func)
 
-        buttons["go_fk"].clicked.connect(lambda: self.robot.forward_kinematics(target_configuration=self.fk_joint_targets))
+        buttons["go_fk"].clicked.connect(lambda: self.get_traj(traj_type="fk", target_configuration=self.fk_joint_targets))
 
-        buttons["go_ik"].clicked.connect(lambda: self.robot.inverse_kinematics(target_position=self.ik_target_position,
-                                                                               target_orientation=self.ik_target_orientation,
-                                                                               mirror=self.mirror, debug=False))
+        buttons["go_ik"].clicked.connect(lambda: self.get_traj(traj_type="ik", target_position=self.ik_target_position, target_orientation=self.ik_target_orientation))
 
     def _process_field(self, field_name, field_obj):
         if "Joint" in field_name:
