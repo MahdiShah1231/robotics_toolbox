@@ -206,6 +206,8 @@ class Robot:
     def get_trajectory(self, traj_type, **kwargs):
         traj = []
 
+        # IK cartesian solution is converted into joint space and trajectory calculated from current joint config.
+        # Joint space trajectory is smoother.
         if traj_type == 'ik':
             target_position = kwargs.get('target_position')
             target_orientation = kwargs.get('target_orientation')
