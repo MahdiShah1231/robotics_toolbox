@@ -2,7 +2,7 @@ from functools import partial
 import sys
 import matplotlib
 
-from forward_kinematics import ForwardKinematics
+from helper_functions.helper_functions import MoveType
 
 matplotlib.use('Qt5Agg')
 
@@ -195,7 +195,7 @@ class ControlWindow(QWidget):
 
     def on_click(self, event):
         self.ik_target_position = [event.xdata/1000.0, event.ydata/1000.0]
-        self.get_traj("ik", target_position=self.ik_target_position, target_orientation=self.ik_target_orientation)
+        self.get_traj(move_type=MoveType.CARTESIAN, target_position=self.ik_target_position, target_orientation=self.ik_target_orientation)
 
     # TODO implement click and drag
     def _update_canvas_dynamic(self):
@@ -207,26 +207,22 @@ class ControlWindow(QWidget):
         else:
             self.robot._plot(ax=self.canvas.axes, canvas=self.canvas, mirror=self.mirror)
 
-    def get_traj(self, traj_type, **kwargs):
-        if traj_type == "fk":
-            self.animation_func = self.move_arm_fk
-        elif traj_type == "ik":
+    def get_traj(self, move_type: MoveType, **kwargs):
+        if move_type == MoveType.JOINT:
+            self.animation_func = self.robot.move_fk
+        elif move_type == MoveType.CARTESIAN:
             self.animation_func = self.move_arm_ik
-        self.traj = self.robot.get_trajectory(traj_type, **kwargs)
-
-    def move_arm_fk(self, target_config):
-        fk = ForwardKinematics(robot=self.robot, target_configuration=target_config)
-        fk.forward_kinematics(debug=False)
+        self.traj = self.robot.get_trajectory(move_type, **kwargs)
 
     def move_arm_ik(self, target_config):
         # If robot has linear base, separate movement for the arm joints and the prismatic base joint.
         # Arm movement always handled by FK.
         if self.robot.linear_base:
             rail_target, *joint_target = target_config
-            self.move_arm_fk(joint_target)
+            self.robot.move_fk(joint_target)
             self.robot.move_rail(rail_target)
         else:
-            self.move_arm_fk(target_config)
+            self.robot.move_fk(target_config)
 
     def _connect_signals(self, fk_data_fields, ik_data_fields, buttons):
         for joint_name, joint_field_obj in fk_data_fields.items():
@@ -240,9 +236,9 @@ class ControlWindow(QWidget):
             else:
                 field_obj.editingFinished.connect(process_func)
 
-        buttons["go_fk"].clicked.connect(lambda: self.get_traj(traj_type="fk", target_configuration=self.fk_joint_targets))
+        buttons["go_fk"].clicked.connect(lambda: self.get_traj(move_type=MoveType.JOINT, target_configuration=self.fk_joint_targets))
 
-        buttons["go_ik"].clicked.connect(lambda: self.get_traj(traj_type="ik", target_position=self.ik_target_position, target_orientation=self.ik_target_orientation))
+        buttons["go_ik"].clicked.connect(lambda: self.get_traj(move_type=MoveType.CARTESIAN, target_position=self.ik_target_position, target_orientation=self.ik_target_orientation))
 
     def _process_field(self, field_name, field_obj):
         if "Joint" in field_name:
@@ -273,6 +269,7 @@ class ControlWindow(QWidget):
         elif field_name == 'Mirror':
             field_value = field_obj.isChecked()
             self.mirror = field_value
+
 
 class VisualCanvas(FigureCanvasQTAgg):
 

@@ -1,7 +1,12 @@
 from typing import Union
 import numpy as np
 from matplotlib import pyplot as plt
+from enum import Enum
 
+
+class MoveType(Enum):
+    JOINT = "Joint"  # Joint space command, Forward Kinematics
+    CARTESIAN = "Cartesian"  # Cartesian space command, Inverse Kinematics
 
 def calculate_joint_angles(vertices: dict[str, list[float]], linear_base: bool) -> list[float]:
     joint_angles = [0.0] * (len(vertices["x"]) - 1)
