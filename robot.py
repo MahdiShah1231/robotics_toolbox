@@ -6,9 +6,7 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 import matplotlib.animation as animation
 from matplotlib.patches import Circle
-
-from forward_kinematics import ForwardKinematics
-from helper_functions.helper_functions import wrap_angles_to_pi
+from helper_functions.helper_functions import wrap_angles_to_pi, MoveType, calculate_joint_angles
 from trajectories import QuinticPolynomialTrajectory
 
 SCALE_TO_MM = 1000
@@ -127,7 +125,7 @@ class Robot:
             arm_joint_configuration = self.joint_configuration
 
         # Call forward kinematics to move the robot to the starting joint_configuration
-        self.forward_kinematics(target_configuration=arm_joint_configuration, debug=False, plot=False, enable_animation=False)
+        self.move(move_type=MoveType.JOINT, plot=False, enable_animation=False, debug=False, target_configuration=arm_joint_configuration)
         self.mirrored_vertices = self.vertices  # Mirrored vertices set to prevent crashes for gui
 
     def _plot(self, ax: Axes, canvas=None, mirror: bool = False, target_orientation: float = None) -> None:
@@ -187,28 +185,25 @@ class Robot:
             canvas.flush_events()
 
     def animated_fk_plot(self, target_configuration):
-        fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
-        fk.forward_kinematics(debug=False)
+        self.move_fk(target_configuration=target_configuration, debug=False)
         self._plot(plt.gca())
 
     def animated_ik_plot(self, ik_params, mirror):
         if self.linear_base:
             rail_increment, *target_configuration = ik_params
-            fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
-            fk.forward_kinematics(debug=False)
+            self.move_fk(target_configuration=target_configuration, debug=False)
             self.move_rail(rail_increment)
         else:
             target_configuration = ik_params
-            fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
-            fk.forward_kinematics(debug=False)
+            self.move_fk(target_configuration=target_configuration, debug=False)
         self._plot(plt.gca(), mirror=mirror)
 
-    def get_trajectory(self, traj_type, **kwargs):
+    def get_trajectory(self, move_type: MoveType, **kwargs):
         traj = []
 
         # IK cartesian solution is converted into joint space and trajectory calculated from current joint config.
         # Joint space trajectory is smoother.
-        if traj_type == 'ik':
+        if move_type == MoveType.CARTESIAN:
             target_position = kwargs.get('target_position')
             target_orientation = kwargs.get('target_orientation')
 
@@ -224,7 +219,7 @@ class Robot:
 
             traj = list(zip(*traj))
 
-        elif traj_type == 'fk':
+        elif move_type == MoveType.JOINT:
             target_configuration = kwargs.get('target_configuration')
             for joint_idx, joint_target in enumerate(target_configuration):
                 if self.linear_base:
@@ -246,7 +241,7 @@ class Robot:
 
         # Shift all vertices by an increment relative to starting position
         old_base_pos = self.vertices["x"][1]
-        self.vertices["x"][1] = rail_length + self.robot_base_origin[0]  ## 831 + 100 = 931
+        self.vertices["x"][1] = rail_length + self.robot_base_origin[0]
 
         relative_change = self.vertices["x"][1] - old_base_pos
         for joint_idx, joint_val in enumerate(self.vertices["x"][2::]):
@@ -281,31 +276,66 @@ class Robot:
                 print("IK cannot be solved. Pick a more appropriate target")
 
         else:
-            ik_traj = self.get_trajectory('ik', target_position=target_position, target_orientation=target_orientation)
+            ik_traj = self.get_trajectory(move_type=MoveType.CARTESIAN, target_position=target_position, target_orientation=target_orientation)
             fig, ax = plt.subplots()
             animated_ik_plot_func = partial(self.animated_ik_plot, mirror=mirror)
             ani = animation.FuncAnimation(fig, animated_ik_plot_func, ik_traj, interval=1, repeat=False)
             plt.show()
 
-    def forward_kinematics(self, target_configuration: list[float],
-                           debug: bool = False,
-                           plot: bool = False,
-                           enable_animation: bool = True) -> None:
+    def move(self,
+             move_type: MoveType,
+             plot: bool = False,
+             enable_animation: bool = True,
+             debug: bool = False,
+             **kwargs):
 
-        if not enable_animation:
-            # Create fk object and call method
-            fk = ForwardKinematics(robot=self, target_configuration=target_configuration)
-            fk.forward_kinematics(debug=debug)
+        if move_type == MoveType.JOINT:
+            target_configuration = kwargs.get("target_configuration")
+            target_configuration = wrap_angles_to_pi(target_configuration)
+            if not enable_animation:
+                self.move_fk(target_configuration=target_configuration, debug=debug)
+                if plot:
+                    fig, ax = plt.subplots()
+                    self._plot(ax=ax)
+                    plt.show()
+            else:
+                target_configuration_traj = self.get_trajectory(move_type=move_type, target_configuration=target_configuration)
+                if plot:
+                    fig, ax = plt.subplots()
+                    ani = animation.FuncAnimation(fig, self.animated_fk_plot, target_configuration_traj, interval=1, repeat=False)
+                    plt.show()
 
-            if plot:
-                fig, ax = plt.subplots()
-                self._plot(ax=ax)
-                plt.show()
+        elif move_type == MoveType.CARTESIAN:
+            pass
 
-        else:
-            target_configuration_traj = self.get_trajectory('fk', target_configuration=target_configuration)
-            fig, ax = plt.subplots()
-            ani = animation.FuncAnimation(fig, self.animated_fk_plot, target_configuration_traj, interval=1, repeat=False)
-            plt.show()
+    def move_fk(self, target_configuration, debug: bool = False):
+        target_configuration = list(target_configuration)
+        # Need to dummy joint angle for the linear prismatic joint to avoid indexing error
+        start_idx = 0
+        if self.linear_base:
+            start_idx = 1  # Skipping first link since the prismatic joint wont be controlled through FK
+            # For an FK command we are not concerned with controlling the linear base (prismatic joint)
+            target_configuration.insert(0, self.link_lengths[0])
 
+        reference_angle = 0
+        for link_index in range(start_idx, self.n_links):
+            # Joint angles are computed as relative to previous link (convention)
+            behind_vertex = [self.vertices["x"][link_index], self.vertices["y"][link_index]]
+            angle = target_configuration[link_index] + reference_angle
+            x_change = self.link_lengths[link_index] * np.cos(angle)
+            y_change = self.link_lengths[link_index] * np.sin(angle)
 
+            new_vertex = np.add(behind_vertex, [x_change, y_change])
+
+            self.vertices["x"][link_index + 1] = new_vertex[0]
+            self.vertices["y"][link_index + 1] = new_vertex[1]
+
+            reference_angle += target_configuration[link_index]
+        self.joint_configuration = calculate_joint_angles(self.vertices, self.linear_base)
+
+        if debug:
+            print("Final robot configuration:")
+            print(self.joint_configuration)
+            print(self.vertices)
+
+        return self.vertices
