@@ -14,7 +14,7 @@ SCALE_TO_MM = 1000
 
 class Robot:
     def __init__(self, link_lengths: list[float],
-                 ik_alg,
+                 ik_solver,
                  joint_configuration: list[float] = None,
                  robot_base_radius: float = 0.1,
                  linear_base: bool = False,
@@ -22,7 +22,7 @@ class Robot:
                  trajectory_generator=QuinticPolynomialTrajectory) -> None:
 
         self.__link_lengths = list(map(lambda x: float(x) * SCALE_TO_MM, link_lengths))  # Scaling links from m to mm
-        self.__ik_alg = ik_alg
+        self.__ik_solver = ik_solver
         self.joint_configuration = wrap_angles_to_pi(joint_configuration)  # Wrap all joint angles
         self.__robot_base_radius = robot_base_radius * SCALE_TO_MM  # Scaling radius from m to mm
         self.__linear_base = linear_base
@@ -50,8 +50,8 @@ class Robot:
         self.__link_lengths = new_lengths
 
     @property
-    def ik_alg(self):
-        return self.__ik_alg
+    def ik_solver(self):
+        return self.__ik_solver
 
     @property
     def robot_base_radius(self):
@@ -208,8 +208,18 @@ class Robot:
             target_orientation = kwargs.get('target_orientation')
 
             # Solve IK to get the joint configuration at the target position and create joint space trajectory
-            ik = self.ik_alg(robot=self, target_position=target_position, target_orientation=target_orientation)
-            target_configuration, mirrored_configuration = ik.solve(debug=False, mirror=False, move=False)
+            self.ik_solver.setup_target(target_position=target_position, target_orientation=target_orientation)
+            solutions_dict = self.ik_solver.solve(
+                vertices=self.vertices,
+                link_lengths=self.link_lengths,
+                linear_base=self.linear_base,
+                robot_base_origin=self.robot_base_origin,
+                start_config=self.joint_configuration,
+                debug=False,
+                mirror=False,
+            )
+            target_configuration = solutions_dict["joint_config"]
+            mirrored_target_configuration = solutions_dict["mirrored_joint_config"]
 
             for joint_idx, joint_target in enumerate(target_configuration):
                 current_joint_value = self.joint_configuration[joint_idx]
@@ -252,35 +262,12 @@ class Robot:
         self.link_lengths = new_link_lengths
         self.joint_configuration[0] = new_link_lengths[0]
 
-    def inverse_kinematics(self, target_position: list[float],
-                           target_orientation: float = None,
-                           mirror: bool = True,
-                           debug: bool = False,
-                           move: bool = True,
-                           plot: bool = False,
-                           enable_animation: bool = True) -> None:
-
-        if not enable_animation:
-            # Create ik object and call solve method
-            ik = self.ik_alg(robot=self, target_position=target_position, target_orientation=target_orientation)
-            ik.solve(debug=debug, mirror=mirror, move=move)
-
-            # If solution to ik found and plot == True, plot the robot
-            if ik.solved and plot:
-                fig, ax = plt.subplots()
-                self._plot(ax=ax, mirror=mirror, target_orientation=target_orientation)
-
-            # Debug provides detailed info, this is more for gui usage since terminal can run with debug=True
-            # Not debug condition prevents double printing for terminal
-            elif not ik.solved and not debug:
-                print("IK cannot be solved. Pick a more appropriate target")
-
-        else:
-            ik_traj = self.get_trajectory(move_type=MoveType.CARTESIAN, target_position=target_position, target_orientation=target_orientation)
-            fig, ax = plt.subplots()
-            animated_ik_plot_func = partial(self.animated_ik_plot, mirror=mirror)
-            ani = animation.FuncAnimation(fig, animated_ik_plot_func, ik_traj, interval=1, repeat=False)
-            plt.show()
+    def update_robot(self, solutions_dict: dict):
+        self.joint_configuration = solutions_dict["joint_config"]
+        self.mirrored_joint_configuration = solutions_dict["mirrored_joint_config"]
+        self.vertices = solutions_dict["vertices"]
+        self.mirrored_vertices = solutions_dict["mirrored_vertices"]
+        self.link_lengths = solutions_dict["link_lengths"]
 
     def move(self,
              move_type: MoveType,
@@ -306,7 +293,30 @@ class Robot:
                     plt.show()
 
         elif move_type == MoveType.CARTESIAN:
-            pass
+            target_position = kwargs.get("target_position")
+            target_orientation = kwargs.get("target_orientation")
+            mirror = kwargs.get("mirror")
+            if not enable_animation:
+                self.move_ik(target_position=target_position,
+                             target_orientation=target_orientation,
+                             mirror=mirror,
+                             debug=debug)
+                # If solution to ik found and plot == True, plot the robot
+                if self.ik_solver.solved and plot:
+                    fig, ax = plt.subplots()
+                    self._plot(ax=ax, mirror=mirror, target_orientation=target_orientation)
+                    plt.show()
+                # Debug provides detailed info, this is more for gui usage since terminal can run with debug=True
+                # Not debug condition prevents double printing for terminal
+                elif not self.ik_solver.solved and not debug:
+                    print("IK cannot be solved. Pick a more appropriate target")
+            else:
+                ik_traj = self.get_trajectory(move_type=MoveType.CARTESIAN, target_position=target_position,
+                                              target_orientation=target_orientation)
+                fig, ax = plt.subplots()
+                animated_ik_plot_func = partial(self.animated_ik_plot, mirror=mirror)
+                ani = animation.FuncAnimation(fig, animated_ik_plot_func, ik_traj, interval=1, repeat=False)
+                plt.show()
 
     def move_fk(self, target_configuration, debug: bool = False):
         target_configuration = list(target_configuration)
@@ -339,3 +349,16 @@ class Robot:
             print(self.vertices)
 
         return self.vertices
+
+    def move_ik(self, target_position, target_orientation, mirror, debug):
+        # Setup ik solver target and solve
+        self.ik_solver.setup_target(target_position=target_position, target_orientation=target_orientation)
+        solutions_dict = self.ik_solver.solve(
+            vertices=self.vertices,
+            link_lengths=self.link_lengths,
+            linear_base=self.linear_base,
+            robot_base_origin=self.robot_base_origin,
+            debug=debug,
+            mirror=mirror,
+        )
+        self.update_robot(solutions_dict=solutions_dict)
