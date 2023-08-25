@@ -13,7 +13,7 @@ from PyQt5.QtCore import QTimer
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from robot import Robot
-from inverse_kinematics import Fabrik
+from inverse_kinematics import FabrikSolver
 
 
 class Window(QMainWindow):
@@ -26,10 +26,10 @@ class Window(QMainWindow):
         self._create_toolbar()
 
         self.link_lengths = [0.4, 0.3, 0.2]
-        self.ik_alg = Fabrik
+        self.ik_alg = FabrikSolver()
         self.joint_configuration = None
         self.robot_base_radius = 0.1
-        self.linear_base = False
+        self.linear_base = True
 
     def _create_central_widget(self):
         window = QWidget()
@@ -109,17 +109,15 @@ class Window(QMainWindow):
         if field_id == "ik_alg":
             field_value = field_obj.currentText()
             if field_value == "Fabrik":
-                self.ik_alg = Fabrik
+                self.ik_alg = FabrikSolver()
 
         if field_id == "linear_base":
             field_value = field_obj.isChecked()
             self.linear_base = field_value
 
     def launch_robot_control(self):
-        robot = Robot(link_lengths=self.link_lengths,
-                      ik_alg=self.ik_alg,
-                      joint_configuration=self.joint_configuration,
-                      robot_base_radius=self.robot_base_radius,
+        robot = Robot(link_lengths=self.link_lengths, ik_solver=self.ik_alg,
+                      joint_configuration=self.joint_configuration, robot_base_radius=self.robot_base_radius,
                       linear_base=self.linear_base)
         control_window = ControlWindow(robot)
         control_window.show()

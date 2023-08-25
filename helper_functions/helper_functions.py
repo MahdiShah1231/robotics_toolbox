@@ -111,7 +111,7 @@ def check_link_lengths(link_lengths: list[float], vertices: dict[str, list[float
                                                           f" {link_length, new_link_length}"
 
 
-def validate_target(target: list[float], linear_base: bool, robot_length: float) -> tuple[bool, float]:
+def validate_target(target: list[float], linear_base: bool, arm_reach: float) -> tuple[bool, float]:
     valid_target = False
 
     if linear_base:
@@ -122,7 +122,7 @@ def validate_target(target: list[float], linear_base: bool, robot_length: float)
         effective_target_distance = abs(np.linalg.norm(target))
 
     # Non-inclusive equality because numerical method IKs such as Fabrik dont do well at the extreme limit
-    if effective_target_distance < robot_length:
+    if effective_target_distance < arm_reach:
         valid_target = True
 
     return valid_target, effective_target_distance
