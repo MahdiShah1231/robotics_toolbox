@@ -184,11 +184,11 @@ class Robot:
             canvas.draw()
             canvas.flush_events()
 
-    def animated_fk_plot(self, target_configuration):
+    def move_fk_animated(self, target_configuration, ax: Axes, canvas):
         self.move_fk(target_configuration=target_configuration, debug=False)
-        self._plot(plt.gca())
+        self._plot(ax=ax, canvas=canvas)
 
-    def animated_ik_plot(self, ik_params, mirror):
+    def move_ik_animated(self, ik_params, ax: Axes, canvas, mirror):
         if self.linear_base:
             rail_increment, *target_configuration = ik_params
             self.move_fk(target_configuration=target_configuration, debug=False)
@@ -196,7 +196,7 @@ class Robot:
         else:
             target_configuration = ik_params
             self.move_fk(target_configuration=target_configuration, debug=False)
-        self._plot(plt.gca(), mirror=mirror)
+        self._plot(ax=ax, canvas=canvas, mirror=mirror)
 
     def get_trajectory(self, move_type: MoveType, **kwargs):
         traj = []
@@ -289,7 +289,8 @@ class Robot:
                 target_configuration_traj = self.get_trajectory(move_type=move_type, target_configuration=target_configuration)
                 if plot:
                     fig, ax = plt.subplots()
-                    ani = animation.FuncAnimation(fig, self.animated_fk_plot, target_configuration_traj, interval=1, repeat=False)
+                    animated_fk_plot_func = partial(self.move_fk_animated, ax=ax, canvas=None)
+                    ani = animation.FuncAnimation(fig, animated_fk_plot_func, target_configuration_traj, interval=1, repeat=False)
                     plt.show()
 
         elif move_type == MoveType.CARTESIAN:
@@ -311,12 +312,13 @@ class Robot:
                 elif not self.ik_solver.solved and not debug:
                     print("IK cannot be solved. Pick a more appropriate target")
             else:
-                ik_traj = self.get_trajectory(move_type=MoveType.CARTESIAN, target_position=target_position,
+                ik_traj = self.get_trajectory(move_type=move_type, target_position=target_position,
                                               target_orientation=target_orientation)
-                fig, ax = plt.subplots()
-                animated_ik_plot_func = partial(self.animated_ik_plot, mirror=mirror)
-                ani = animation.FuncAnimation(fig, animated_ik_plot_func, ik_traj, interval=1, repeat=False)
-                plt.show()
+                if plot:
+                    fig, ax = plt.subplots()
+                    animated_ik_plot_func = partial(self.move_ik_animated, ax=ax, canvas=None, mirror=mirror)
+                    ani = animation.FuncAnimation(fig, animated_ik_plot_func, ik_traj, interval=1, repeat=False)
+                    plt.show()
 
     def move_fk(self, target_configuration, debug: bool = False):
         target_configuration = list(target_configuration)

@@ -201,26 +201,15 @@ class ControlWindow(QWidget):
             while len(self.traj) > 0:
                 config = self.traj.pop(0)
                 self.animation_func(config)
-                self.robot._plot(ax=self.canvas.axes, canvas=self.canvas, mirror=self.mirror)
         else:
             self.robot._plot(ax=self.canvas.axes, canvas=self.canvas, mirror=self.mirror)
 
     def get_traj(self, move_type: MoveType, **kwargs):
         if move_type == MoveType.JOINT:
-            self.animation_func = self.robot.move_fk
+            self.animation_func = partial(self.robot.move_fk_animated, ax=self.canvas.axes, canvas=self.canvas)
         elif move_type == MoveType.CARTESIAN:
-            self.animation_func = self.move_arm_ik
+            self.animation_func = partial(self.robot.move_ik_animated, ax=self.canvas.axes, canvas=self.canvas, mirror=False)
         self.traj = self.robot.get_trajectory(move_type, **kwargs)
-
-    def move_arm_ik(self, target_config):
-        # If robot has linear base, separate movement for the arm joints and the prismatic base joint.
-        # Arm movement always handled by FK.
-        if self.robot.linear_base:
-            rail_target, *joint_target = target_config
-            self.robot.move_fk(joint_target)
-            self.robot.move_rail(rail_target)
-        else:
-            self.robot.move_fk(target_config)
 
     def _connect_signals(self, fk_data_fields, ik_data_fields, buttons):
         for joint_name, joint_field_obj in fk_data_fields.items():
