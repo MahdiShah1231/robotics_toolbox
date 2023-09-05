@@ -1,8 +1,19 @@
+import logging
 from typing import Union
 import numpy as np
 from matplotlib import pyplot as plt
 from enum import Enum
 
+
+def create_logger(module_name, level):
+    logger = logging.getLogger(module_name)
+    logger.setLevel(level)
+    logger_handler = logging.StreamHandler()
+    logger_formatter = logging.Formatter('[%(levelname)s][%(name)s]: %(message)s')
+    logger_handler.setFormatter(logger_formatter)
+    logger.addHandler(logger_handler)
+
+    return logger
 
 class MoveType(Enum):
     JOINT = "Joint"  # Joint space command, Forward Kinematics

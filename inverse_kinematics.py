@@ -1,9 +1,11 @@
 import copy
+import logging
 import numpy as np
 from helper_functions.helper_functions import calculate_joint_angles, wrap_angle_to_pi, check_link_lengths, \
-    validate_target, find_new_vertex
+    validate_target, find_new_vertex, create_logger
 
 SCALE_TO_MM = 1000
+logger = create_logger(module_name=__name__, level=logging.INFO)  # Change debug level as needed
 
 
 class FabrikSolver:
@@ -28,8 +30,9 @@ class FabrikSolver:
               linear_base: bool,
               robot_base_origin: list[float],
               start_config: dict[str, list[float]],
-              debug: bool,
               mirror: bool):
+        if mirror:
+            logger.warning("Mirror functionality doesn't currently work")
 
         # Create deep copy of vertices to prevent modifying robot vertices directly.
         vertices = copy.deepcopy(vertices)
@@ -57,9 +60,9 @@ class FabrikSolver:
                                                                   arm_reach=max_reach)
         # Invalid target, no computation attempted.
         if not valid_target:
-            print("Could not solve. Target outside of robot range")
-            print(f"target distance = {effective_target_distance}, robot max reach = {max_reach}")
-            print("\nChoose a valid target or link lengths")
+            logger.warning("Could not solve IK. Target outside of robot range.")
+            logger.warning(f"Target distance = {effective_target_distance}, robot max reach = {max_reach}.")
+            logger.warning("Choose a valid target or link lengths.")
 
         # Valid target given, attempt to compute IK solution.
         else:
@@ -193,12 +196,8 @@ class FabrikSolver:
                     error = np.linalg.norm(error_vector)
 
             if error > self.__error_tolerance:  # No solution found, maxed out iterations
-                print("Could not solve.")
-                print(f"error: {error}\n")
-                if debug:
-                    check_link_lengths(link_lengths=link_lengths, vertices=vertices)
-                    print("\nVertices: ")
-                    print(vertices)
+                logger.warning(f"Could not solve IK, maxed out iterations (max: {self.__max_iterations})")
+                logger.warning(f"Final solution error: {error}")
 
             else:  # Solution found
                 # Calculate joint angles for the solution
@@ -213,22 +212,7 @@ class FabrikSolver:
                     mirrored_joint_configuration[0] = joint_configuration[0]
 
                 self.solved = True
-
-                if debug:
-                    print("\nPrinting debugging info...")
-                    print("Final robot configuration:")
-                    print(vertices)
-                    if mirror:
-                        print(mirrored_vertices)
-                    print("Final joint angles:")
-                    print(joint_configuration)
-                    if mirror:
-                        print(mirrored_joint_configuration)
-                    check_link_lengths(link_lengths=link_lengths, vertices=vertices)
-                    if mirror:
-                        check_link_lengths(link_lengths=link_lengths,
-                                           vertices=mirrored_vertices)
-                    print(f"\nSolution found in {iterations} iterations")
+                logger.debug(f"IK solution found in {iterations} iterations.")
 
                 # Update solution dict
                 solution["joint_config"] = joint_configuration

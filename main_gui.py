@@ -1,8 +1,9 @@
 from functools import partial
 import sys
 import matplotlib
+import logging
 
-from helper_functions.helper_functions import MoveType
+from helper_functions.helper_functions import MoveType, create_logger
 
 matplotlib.use('Qt5Agg')
 
@@ -14,6 +15,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 from robot import Robot
 from inverse_kinematics import FabrikSolver
+logger = create_logger(module_name=__name__, level=logging.INFO)  # Change debug level as needed
 
 
 class Window(QMainWindow):
@@ -119,6 +121,9 @@ class Window(QMainWindow):
         robot = Robot(link_lengths=self.link_lengths, ik_solver=self.ik_alg,
                       joint_configuration=self.joint_configuration, robot_base_radius=self.robot_base_radius,
                       linear_base=self.linear_base)
+        logger.info(f"Created robot with link lengths: {robot.link_lengths}")
+        logger.info(f"Starting joint configuration: {robot.joint_configuration}")
+        logger.info(f"Linear base: {robot.linear_base}")
         control_window = ControlWindow(robot)
         control_window.show()
 
@@ -193,6 +198,7 @@ class ControlWindow(QWidget):
 
     def on_click(self, event):
         self.ik_target_position = [event.xdata/1000.0, event.ydata/1000.0]
+        logger.debug(f"Click event received. Target: {self.ik_target_position}")
         self.get_traj(move_type=MoveType.CARTESIAN, target_position=self.ik_target_position, target_orientation=self.ik_target_orientation)
 
     # TODO implement click and drag
@@ -201,6 +207,9 @@ class ControlWindow(QWidget):
             while len(self.traj) > 0:
                 config = self.traj.pop(0)
                 self.animation_func(config)
+            logger.info("Trajectory complete.")
+            logger.info(f"Final joint configuration: {self.robot.joint_configuration}")
+            logger.info(f"Final vertices: {self.robot.vertices}")
         else:
             self.robot._plot(ax=self.canvas.axes, canvas=self.canvas, mirror=self.mirror)
 

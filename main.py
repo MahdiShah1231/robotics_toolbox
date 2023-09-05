@@ -2,8 +2,10 @@ from typing import Union
 import numpy as np
 from robot import Robot
 from inverse_kinematics import FabrikSolver
-from helper_functions.helper_functions import MoveType
+from helper_functions.helper_functions import MoveType, create_logger
+import logging
 
+logger = create_logger(__name__, logging.INFO)
 
 def create_robot(link_lengths: list[float],
                  ik_alg=FabrikSolver(),
@@ -19,14 +21,14 @@ def create_robot(link_lengths: list[float],
 
 def move(robot: Robot,
          move_type: MoveType,
-         debug: bool = False,
          enable_animation: bool = True,
          **kwargs) -> None:
     robot.move(move_type=move_type,
                plot=True,
                enable_animation=enable_animation,
-               debug=debug,
                **kwargs)
+    logger.info(f"Final joint configuration: {robot.joint_configuration}")
+    logger.info(f"Final vertices: {robot.vertices}")
 
 if __name__ == '__main__':
     r = create_robot(link_lengths=[0.4, 0.3, 0.2],
@@ -48,5 +50,5 @@ if __name__ == '__main__':
     # Pass move_type = MoveType.CARTESIAN, and send keyword argument "target_position" and "target_orientation"
 
     # Example cartesian space cmd, uncomment below
-    move(robot=r, move_type=cartesian_space_move, target_position=[1.5,0.6], target_orientation=np.pi / 2, mirror=False, debug=False)
+    move(robot=r, move_type=cartesian_space_move, target_position=[1.5,0.6], target_orientation=np.pi / 2, mirror=False)
 
