@@ -1,5 +1,6 @@
 import copy
 import logging
+from abc import ABC, abstractmethod
 import numpy as np
 from helper_functions.helper_functions import calculate_joint_angles, wrap_angle_to_pi, check_link_lengths, \
     validate_target, find_new_vertex, create_logger
@@ -8,21 +9,40 @@ SCALE_TO_MM = 1000
 logger = create_logger(module_name=__name__, level=logging.INFO)  # Change debug level as needed
 
 
-class FabrikSolver:
+class IKSolverBase(ABC):
+    def __init__(self,
+                 error_tolerance: float,
+                 max_iterations: int) -> None:
+        self.solved = False
+        self._error_tolerance = error_tolerance
+        self._max_iterations = max_iterations
+        self._target_position = None
+        self._target_orientation = None
+
+    def setup_target(self,
+                     target_position: list[float, float],
+                     target_orientation: float) -> None:
+        self._target_position = list(map(lambda x: x * SCALE_TO_MM, target_position))  # Scaling target from m to mm
+        self._target_orientation = wrap_angle_to_pi(target_orientation)
+
+    @abstractmethod
+    def solve(self,
+              vertices: dict[str, list[float]],
+              link_lengths: list[float],
+              linear_base: bool,
+              robot_base_origin: list[float],
+              start_config: dict[str, list[float]],
+              mirror: bool) -> dict:
+
+        raise NotImplementedError
+
+
+class FabrikSolver(IKSolverBase):
     def __init__(self,
                  error_tolerance: float = 0.000001,
                  max_iterations: int = 100000) -> None:
-        self.solved = False
-        self.__error_tolerance = error_tolerance
-        self.__max_iterations = max_iterations
-        self.__target_position = None
-        self.__target_orientation = None
-
-    def setup_target(self,
-                     target_position: list[float],
-                     target_orientation: float) -> None:
-        self.__target_position = list(map(lambda x: x * SCALE_TO_MM, target_position))  # Scaling target from m to mm
-        self.__target_orientation = wrap_angle_to_pi(target_orientation)
+        super().__init__(error_tolerance=error_tolerance,
+                         max_iterations=max_iterations)
 
     def solve(self,
               vertices: dict[str, list[float]],
@@ -30,7 +50,7 @@ class FabrikSolver:
               linear_base: bool,
               robot_base_origin: list[float],
               start_config: dict[str, list[float]],
-              mirror: bool):
+              mirror: bool) -> dict:
         if mirror:
             logger.warning("Mirror functionality doesn't currently work")
 
@@ -55,7 +75,7 @@ class FabrikSolver:
             max_reach = sum(link_lengths[1::])
 
         # First validate target before attempting to compute solution
-        valid_target, effective_target_distance = validate_target(target=self.__target_position,
+        valid_target, effective_target_distance = validate_target(target=self._target_position,
                                                                   linear_base=linear_base,
                                                                   arm_reach=max_reach)
         # Invalid target, no computation attempted.
@@ -67,11 +87,11 @@ class FabrikSolver:
         # Valid target given, attempt to compute IK solution.
         else:
             # If there is no target orientation given, the end effector can be oriented in any way to reach the target
-            if self.__target_orientation is None:
+            if self._target_orientation is None:
                 # The "effective" end effector = robot last vertex
                 ee_position_actual = [vertices["x"][-1], vertices["y"][-1]]
                 # The target for the effective end effector is = target
-                ee_position_target = self.__target_position
+                ee_position_target = self._target_position
                 ee_vertex_index = -1  # Last vertex is the effective ee
 
             # If there is a target orientation given, the end effector must be oriented in the specified orientation
@@ -80,11 +100,11 @@ class FabrikSolver:
                 # it must be moved to an "effective" target such that with the correct orientation, the last vertex will
                 # reach the target
                 ee_position_actual = [vertices["x"][-2], vertices["y"][-2]]
-                last_link_orientation = np.around([np.cos(self.__target_orientation),
-                                                   np.sin(self.__target_orientation)], decimals=5)
+                last_link_orientation = np.around([np.cos(self._target_orientation),
+                                                   np.sin(self._target_orientation)], decimals=5)
                 oriented_last_link = list(map(lambda i: i * link_lengths[-1], last_link_orientation))
                 # The "effective" target has to take into account the orientation of the final link
-                ee_position_target = np.subtract(self.__target_position, oriented_last_link)
+                ee_position_target = np.subtract(self._target_position, oriented_last_link)
                 ee_vertex_index = -2  # Second last vertex is the effective ee
 
             if not linear_base:
@@ -97,7 +117,7 @@ class FabrikSolver:
             # n_unset_arm_links = number of links to set through computation.
             # Equivalent to n_arm_links if no target orientation (e.g need to set all arm links)
             # Or equals n_arm_links - 1 if target orientation given (e.g no need to computationally set last link)
-            n_unset_arm_links = n_arm_links if self.__target_orientation is None else n_arm_links - 1
+            n_unset_arm_links = n_arm_links if self._target_orientation is None else n_arm_links - 1
 
             # last unset arm link idx takes into account the extra starting link if linear base is present
             last_unset_arm_link_idx = n_unset_arm_links - 1 if not linear_base else n_unset_arm_links
@@ -106,14 +126,14 @@ class FabrikSolver:
             error_vector = np.subtract(ee_position_target, ee_position_actual)
             error = np.linalg.norm(error_vector)
 
-            while error > self.__error_tolerance and iterations < self.__max_iterations:
+            while error > self._error_tolerance and iterations < self._max_iterations:
                 iterations += 1
                 if iterations % 2 != 0:  # Odd iteration = backward iteration
                     # First step of backwards iteration is to move last vertex to the target
-                    vertices["x"][-1] = self.__target_position[0]
-                    vertices["y"][-1] = self.__target_position[1]
+                    vertices["x"][-1] = self._target_position[0]
+                    vertices["y"][-1] = self._target_position[1]
 
-                    if self.__target_orientation is not None:
+                    if self._target_orientation is not None:
                         # Setting second last vertex to give the correct target orientation of last link
                         vertices["x"][-2] = vertices["x"][-1] - oriented_last_link[0]
                         vertices["y"][-2] = vertices["y"][-1] - oriented_last_link[1]
@@ -184,7 +204,7 @@ class FabrikSolver:
                         vertices["x"][vertex_index + 1] = new_ahead_vertex[0]
                         vertices["y"][vertex_index + 1] = new_ahead_vertex[1]
 
-                    if self.__target_orientation is not None:
+                    if self._target_orientation is not None:
                         # Resetting last arm vertex to give correct orientation from the second last vertex
                         # Second last vertex is the last vertex set in the forward iteration if a targ orientation given
                         vertices["x"][-1] = vertices["x"][-2] + oriented_last_link[0]
@@ -195,8 +215,8 @@ class FabrikSolver:
                     error_vector = np.subtract(ee_position_target, ee_position_actual)
                     error = np.linalg.norm(error_vector)
 
-            if error > self.__error_tolerance:  # No solution found, maxed out iterations
-                logger.warning(f"Could not solve IK, maxed out iterations (max: {self.__max_iterations})")
+            if error > self._error_tolerance:  # No solution found, maxed out iterations
+                logger.warning(f"Could not solve IK, maxed out iterations (max: {self._max_iterations})")
                 logger.warning(f"Final solution error: {error}")
 
             else:  # Solution found
@@ -237,7 +257,7 @@ class FabrikSolver:
         # The mirror line ends at the last vertex if theres no orientation, or second last if there is an orientation
         # n_links updates based on if a linear base exists.
         # vertices[n_links] = last vertex, vertices[n_links - 1] = second last vertex
-        mirror_line_last_vertex_index = n_links if self.__target_orientation is None else n_links - 1
+        mirror_line_last_vertex_index = n_links if self._target_orientation is None else n_links - 1
         mirror_line_last_vertex = [mirrored_vertices["x"][mirror_line_last_vertex_index],
                                    mirrored_vertices["y"][mirror_line_last_vertex_index]]
 
