@@ -4,6 +4,7 @@ import matplotlib
 import logging
 
 from helper_functions.helper_functions import MoveType, create_logger
+from trajectories import QuinticPolynomialTrajectory
 
 matplotlib.use('Qt5Agg')
 
@@ -28,10 +29,11 @@ class Window(QMainWindow):
         self._create_toolbar()
 
         self.link_lengths = [0.4, 0.3, 0.2]
-        self.ik_alg = FabrikSolver()
+        self.ik_solver = FabrikSolver()
         self.joint_configuration = None
         self.robot_base_radius = 0.1
         self.linear_base = True
+        self.trajectory_generator = QuinticPolynomialTrajectory()  # TODO add an option on GUI to change this
 
     def _create_central_widget(self):
         window = QWidget()
@@ -43,10 +45,10 @@ class Window(QMainWindow):
 
         data_fields = {}
         data_fields["link_lengths"] = QLineEdit()
-        ik_alg_options = QComboBox()
-        ik_alg_options.addItem("--Select an algorithm--")
-        ik_alg_options.addItem("Fabrik")
-        data_fields["ik_alg"] = ik_alg_options
+        ik_solver_options = QComboBox()
+        ik_solver_options.addItem("--Select an algorithm--")
+        ik_solver_options.addItem("Fabrik")
+        data_fields["ik_solver"] = ik_solver_options
         data_fields["joint_configuration"] = QLineEdit()
         data_fields["robot_base_radius"] = QLineEdit()
         data_fields["linear_base"] = QRadioButton("On")
@@ -55,7 +57,7 @@ class Window(QMainWindow):
         form_layout.addRow("Link Lengths:", data_fields["link_lengths"])
         form_layout.addRow("Starting Joint Configuration:", data_fields["joint_configuration"])
         form_layout.addRow("Robot Base Radius:", data_fields["robot_base_radius"])
-        form_layout.addRow("Inverse Kinematics Algorithm:", data_fields["ik_alg"])
+        form_layout.addRow("Inverse Kinematics Algorithm:", data_fields["ik_solver"])
         form_layout.addRow("Linear Base:", data_fields["linear_base"])
 
         main_window_layout.addLayout(form_layout)
@@ -80,7 +82,7 @@ class Window(QMainWindow):
             process_func = partial(self._process_field, field_name, field_obj)
             if field_name == "linear_base":
                 field_obj.toggled.connect(process_func)
-            elif field_name == "ik_alg":
+            elif field_name == "ik_solver":
                 field_obj.activated.connect(process_func)
             else:
                 field_obj.editingFinished.connect(process_func)
@@ -108,22 +110,22 @@ class Window(QMainWindow):
                     except:
                         raise ValueError("Robot base must be a number")
 
-        if field_id == "ik_alg":
+        if field_id == "ik_solver":
             field_value = field_obj.currentText()
             if field_value == "Fabrik":
-                self.ik_alg = FabrikSolver()
+                self.ik_solver = FabrikSolver()
 
         if field_id == "linear_base":
             field_value = field_obj.isChecked()
             self.linear_base = field_value
 
     def launch_robot_control(self):
-        robot = Robot(link_lengths=self.link_lengths, ik_solver=self.ik_alg,
-                      joint_configuration=self.joint_configuration, robot_base_radius=self.robot_base_radius,
+        robot = Robot(link_lengths=self.link_lengths,
+                      ik_solver=self.ik_solver,
+                      trajectory_generator=self.trajectory_generator,
+                      joint_configuration=self.joint_configuration,
+                      robot_base_radius=self.robot_base_radius,
                       linear_base=self.linear_base)
-        logger.info(f"Created robot with link lengths: {robot.link_lengths}")
-        logger.info(f"Starting joint configuration: {robot.joint_configuration}")
-        logger.info(f"Linear base: {robot.linear_base}")
         control_window = ControlWindow(robot)
         control_window.show()
 

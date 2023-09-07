@@ -31,7 +31,7 @@ class IKSolverBase(ABC):
               link_lengths: list[float],
               linear_base: bool,
               robot_base_origin: list[float],
-              start_config: dict[str, list[float]],
+              start_config: list[float],
               mirror: bool) -> dict:
 
         raise NotImplementedError
