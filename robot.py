@@ -8,7 +8,8 @@ from matplotlib.axes import Axes
 import matplotlib.animation as animation
 from matplotlib.patches import Circle
 from helper_functions.helper_functions import wrap_angles_to_pi, MoveType, calculate_joint_angles, create_logger
-from trajectories import QuinticPolynomialTrajectory
+from trajectories import TrajectoryBase
+from inverse_kinematics import IKSolverBase
 
 SCALE_TO_MM = 1000
 logger = create_logger(module_name=__name__, level=logging.INFO)  # Change debug level as needed
@@ -16,20 +17,20 @@ logger = create_logger(module_name=__name__, level=logging.INFO)  # Change debug
 
 class Robot:
     def __init__(self, link_lengths: list[float],
-                 ik_solver,
+                 ik_solver: IKSolverBase,
+                 trajectory_generator: TrajectoryBase,
                  joint_configuration: list[float] = None,
                  robot_base_radius: float = 0.1,
                  linear_base: bool = False,
-                 environment: Union[str, list[float]] = None,
-                 trajectory_generator=QuinticPolynomialTrajectory) -> None:
+                 environment: Union[str, list[float]] = None) -> None:
 
         self.__link_lengths = list(map(lambda x: float(x) * SCALE_TO_MM, link_lengths))  # Scaling links from m to mm
         self.__ik_solver = ik_solver
+        self.__trajectory_generator = trajectory_generator
         self.joint_configuration = wrap_angles_to_pi(joint_configuration)  # Wrap all joint angles
         self.__robot_base_radius = robot_base_radius * SCALE_TO_MM  # Scaling radius from m to mm
         self.__linear_base = linear_base
         self.__environment = environment
-        self.__trajectory_generator = trajectory_generator
 
         # Generated attributes
         self.__robot_base_origin = [self.robot_base_radius, 0.0]
@@ -129,10 +130,13 @@ class Robot:
         # Call forward kinematics to move the robot to the starting joint_configuration
         self.move(move_type=MoveType.JOINT, plot=False, enable_animation=False, target_configuration=arm_joint_configuration)
         self.mirrored_vertices = self.vertices  # Mirrored vertices set to prevent crashes for gui
-        logger.debug(f"Startup configuration complete. Foldable: {foldable}")
-        logger.debug(f"Joint configuration: {self.joint_configuration}")
-        logger.debug(f"Link lengths: {self.link_lengths}. Linear base: {self.linear_base}")
-        logger.debug(f"Current vertices: {self.vertices}")
+        logger.info(f"Startup configuration complete. Foldable: {foldable}")
+        logger.info(f"Linear base: {self.linear_base}")
+        logger.info(f"Link lengths: {self.link_lengths}")
+        logger.info(f"Starting joint configuration: {self.joint_configuration}")
+        logger.info(f"Current vertices: {self.vertices}")
+        logger.info(f"IK solver: {self.ik_solver}")
+        logger.info(f"Trajectory Generator: {self.__trajectory_generator}\n")
 
     def _plot(self, ax: Axes, canvas=None, mirror: bool = False, target_orientation: float = None) -> None:
         ax.cla()
@@ -231,9 +235,10 @@ class Robot:
 
             for joint_idx, joint_target in enumerate(target_configuration):
                 current_joint_value = self.joint_configuration[joint_idx]
-                traj_gen = self.__trajectory_generator((current_joint_value, joint_target))
-                _, joint_setpoints = traj_gen.solve_traj()
+                self.__trajectory_generator.setup_trajectory(waypoints=(current_joint_value, joint_target))
+                _, joint_setpoints = self.__trajectory_generator.solve_traj()
                 traj.append(joint_setpoints)
+                self.__trajectory_generator.clear_traj()
             traj = list(zip(*traj))
 
         elif move_type == MoveType.JOINT:
@@ -244,9 +249,9 @@ class Robot:
                     arm_joint_index = joint_idx + 1
                 else:
                     arm_joint_index = joint_idx
-                current_joint_val = self.joint_configuration[arm_joint_index]
-                traj_gen = self.__trajectory_generator((current_joint_val, joint_target))
-                _, joint_setpoints = traj_gen.solve_traj()
+                current_joint_value = self.joint_configuration[arm_joint_index]
+                self.__trajectory_generator.setup_trajectory(waypoints=(current_joint_value, joint_target))
+                _, joint_setpoints = self.__trajectory_generator.solve_traj()
                 traj.append(joint_setpoints)
             traj = list(zip(*traj))
 
@@ -363,6 +368,7 @@ class Robot:
             link_lengths=self.link_lengths,
             linear_base=self.linear_base,
             robot_base_origin=self.robot_base_origin,
+            start_config=self.joint_configuration,
             mirror=mirror,
         )
         self.update_robot(solutions_dict=solutions_dict)
