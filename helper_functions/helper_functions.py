@@ -5,7 +5,8 @@ from matplotlib import pyplot as plt
 from enum import Enum
 
 
-def create_logger(module_name, level):
+def create_logger(module_name: str, level: int) -> logging.Logger:
+
     logger = logging.getLogger(module_name)
     logger.setLevel(level)
     logger_handler = logging.StreamHandler()
@@ -15,11 +16,15 @@ def create_logger(module_name, level):
 
     return logger
 
+
 class MoveType(Enum):
+
     JOINT = "Joint"  # Joint space command, Forward Kinematics
     CARTESIAN = "Cartesian"  # Cartesian space command, Inverse Kinematics
 
+
 def calculate_joint_angles(vertices: dict[str, list[float]], linear_base: bool) -> list[float]:
+
     joint_angles = [0.0] * (len(vertices["x"]) - 1)
     old_direction_vector = [1, 0]  # Starting reference vector (taking angle from positive x)
     last_vertex_index = len(vertices["x"]) - 1
@@ -47,6 +52,7 @@ def calculate_joint_angles(vertices: dict[str, list[float]], linear_base: bool) 
 
 
 def wrap_angle_to_pi(angle: float) -> Union[float, None]:
+
     if angle is None:
         return angle
     # Wrap angle if angle > pi
@@ -74,6 +80,7 @@ def wrap_angle_to_pi(angle: float) -> Union[float, None]:
 
 
 def wrap_angles_to_pi(angles: Union[list[float], float]) -> Union[list[float], None]:
+
     if angles is not None:
         # Call wrap_angle_to_pi on given list of angles
         wrapped_angles = list(map(wrap_angle_to_pi, angles))
@@ -85,7 +92,10 @@ def wrap_angles_to_pi(angles: Union[list[float], float]) -> Union[list[float], N
     return wrapped_angles
 
 
-def find_new_vertex(link_length: float, vertex1: list[float], vertex2: list[float]) -> list[float]:
+def find_new_vertex(link_length: float,
+                    vertex1: list[float, float],
+                    vertex2: list[float, float]) -> list[float, float]:
+
     direction_vector = np.subtract(vertex2, vertex1)  # Pointing from v1 -> v2
     length = np.linalg.norm(direction_vector)
     scaled_direction_vector = (direction_vector / length) * link_length
