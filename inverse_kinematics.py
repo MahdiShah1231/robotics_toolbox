@@ -1,9 +1,11 @@
 import copy
 import logging
 from abc import ABC, abstractmethod
+
 import numpy as np
-from helper_functions.helper_functions import calculate_joint_angles, wrap_angle_to_pi, check_link_lengths, \
-    validate_target, find_new_vertex, create_logger
+
+from helper_functions.helper_functions import calculate_joint_angles, wrap_angle_to_pi, validate_target, \
+    find_new_vertex, create_logger
 
 SCALE_TO_MM = 1000
 logger = create_logger(module_name=__name__, level=logging.INFO)  # Change debug level as needed
@@ -51,6 +53,7 @@ class FabrikSolver(IKSolverBase):
               robot_base_origin: list[float],
               start_config: dict[str, list[float]],
               mirror: bool) -> dict:
+
         if mirror:
             logger.warning("Mirror functionality doesn't currently work")
 
@@ -227,8 +230,12 @@ class FabrikSolver(IKSolverBase):
 
                 if mirror:
                     # Find the vertices and joint angles for the mirrored solution
-                    mirrored_vertices = self._get_mirror_configuration(vertices=vertices, linear_base=linear_base, n_links=n_links)
-                    mirrored_joint_configuration = calculate_joint_angles(vertices=mirrored_vertices, linear_base=linear_base)
+                    mirrored_vertices = self._get_mirror_configuration(vertices=vertices,
+                                                                       linear_base=linear_base,
+                                                                       n_links=n_links)
+
+                    mirrored_joint_configuration = calculate_joint_angles(vertices=mirrored_vertices,
+                                                                          linear_base=linear_base)
                     mirrored_joint_configuration[0] = joint_configuration[0]
 
                 self.solved = True
@@ -247,6 +254,7 @@ class FabrikSolver(IKSolverBase):
                                   vertices: dict[str, list[float]],
                                   linear_base: bool,
                                   n_links: int) -> dict[str, list[float]]:
+
         mirrored_vertices = copy.deepcopy(vertices)  # Start by copying current vertices
 
         # The first robot arm vertex is where the mirror line starts
@@ -287,6 +295,7 @@ class FabrikSolver(IKSolverBase):
 
     def check_collisions(self):
         raise NotImplementedError
+
 
 if __name__ == '__main__':
     pass

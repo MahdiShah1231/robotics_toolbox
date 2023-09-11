@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 
 
 class TrajectoryBase(ABC):
-    def __init__(self):
+    def __init__(self) -> None:
         self._waypoints = ()
         self._traj_time = None
         self._frequency = None
@@ -16,7 +16,8 @@ class TrajectoryBase(ABC):
     def setup_trajectory(self,
                          waypoints: tuple[float, float],
                          time: float = 3.0,
-                         frequency: int = 100):
+                         frequency: int = 100) -> None:
+        self._clear_traj()  # First clear any existing solutions
         self._waypoints = waypoints
         self._traj_time = time
         self._frequency = frequency
@@ -25,11 +26,11 @@ class TrajectoryBase(ABC):
     def solve_traj(self) -> tuple[numpy.ndarray, list[float]]:
         raise NotImplementedError
 
-    def clear_traj(self):
+    def _clear_traj(self) -> None:
         self._t_values = []
         self._setpoints = []
 
-    def plot_traj(self):
+    def plot_traj(self) -> None:
         fig, ax = plt.subplots()
         ax.set_xlim([0, self._traj_time])
         ax.plot(self._t_values, self._setpoints)
@@ -44,7 +45,7 @@ class QuinticPolynomialTrajectory(TrajectoryBase):
     # 0 + a1 + 0 + 0 + 0 + 0 = initial velocity = 0
     # 0 + 0 + 2a2 + 0 + 0 + 0 = initial_acceleration = 0
     # Ax = b
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
     def solve_traj(self) -> tuple[numpy.ndarray, list[float]]:
@@ -78,7 +79,7 @@ class QuinticPolynomialTrajectory(TrajectoryBase):
 
 
 class LinearTrajectory(TrajectoryBase):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
     def solve_traj(self) -> tuple[numpy.ndarray, list[float]]:
@@ -86,7 +87,7 @@ class LinearTrajectory(TrajectoryBase):
 
 
 class ParabolicBlendTrajectory:
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
     def solve_traj(self) -> tuple[numpy.ndarray, list[float]]:
@@ -94,7 +95,7 @@ class ParabolicBlendTrajectory:
 
 
 class RuckigTrajectory:
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
     def solve_traj(self) -> tuple[numpy.ndarray, list[float]]:

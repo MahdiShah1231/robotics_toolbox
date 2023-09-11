@@ -1,27 +1,26 @@
-from functools import partial
-import sys
-import matplotlib
 import logging
+import sys
+from functools import partial
+
+import matplotlib
+from PyQt5.QtCore import QTimer
+from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QComboBox, QFormLayout, QRadioButton, QVBoxLayout, \
+    QPushButton, QMainWindow, QToolBar, QHBoxLayout, QBoxLayout
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
 
 from helper_functions.helper_functions import MoveType, create_logger
+from inverse_kinematics import FabrikSolver
+from robot import Robot
 from trajectories import QuinticPolynomialTrajectory
 
 matplotlib.use('Qt5Agg')
-
-from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QComboBox, QFormLayout, QRadioButton, QVBoxLayout, \
-    QPushButton, QMainWindow, QToolBar, QHBoxLayout
-from PyQt5.QtCore import QTimer
-
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-from matplotlib.figure import Figure
-from robot import Robot
-from inverse_kinematics import FabrikSolver
 logger = create_logger(module_name=__name__, level=logging.INFO)  # Change debug level as needed
 
 
 class Window(QMainWindow):
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(parent=None)
         self.setWindowTitle("RobotToolbox")
         self._create_central_widget()
@@ -35,7 +34,7 @@ class Window(QMainWindow):
         self.linear_base = True
         self.trajectory_generator = QuinticPolynomialTrajectory()  # TODO add an option on GUI to change this
 
-    def _create_central_widget(self):
+    def _create_central_widget(self) -> None:
         window = QWidget()
         window.setGeometry(100, 100, 280, 80)
         main_window_layout = QVBoxLayout()
@@ -43,15 +42,15 @@ class Window(QMainWindow):
         window.setLayout(main_window_layout)
         form_layout = QFormLayout()
 
-        data_fields = {}
-        data_fields["link_lengths"] = QLineEdit()
-        ik_solver_options = QComboBox()
-        ik_solver_options.addItem("--Select an algorithm--")
-        ik_solver_options.addItem("Fabrik")
-        data_fields["ik_solver"] = ik_solver_options
-        data_fields["joint_configuration"] = QLineEdit()
-        data_fields["robot_base_radius"] = QLineEdit()
-        data_fields["linear_base"] = QRadioButton("On")
+        data_fields = {
+            "link_lengths": QLineEdit(),
+            "ik_solver": QComboBox(),
+            "joint_configuration": QLineEdit(),
+            "robot_base_radius": QLineEdit(),
+            "linear_base": QRadioButton("On"),
+        }
+        data_fields["ik_solver"].addItem("--Select an algorithm--")
+        data_fields["ik_solver"].addItem("Fabrik")
         environment = None  # TODO Implement
 
         form_layout.addRow("Link Lengths:", data_fields["link_lengths"])
@@ -66,30 +65,30 @@ class Window(QMainWindow):
         self.setCentralWidget(window)
         self._connect_signals(data_fields, create_robot_button)
 
-    def _create_menu(self):
+    def _create_menu(self) -> None:
         menu = self.menuBar().addMenu("&Menu")
         menu.addAction("&Exit", self.close)
 
-    def _create_toolbar(self):
+    def _create_toolbar(self) -> None:
         tools = QToolBar()
         tools.addAction("Exit", self.close)
         self.addToolBar(tools)
 
-    def _connect_signals(self, data_fields, button):
+    def _connect_signals(self, data_fields: dict, button: QPushButton) -> None:
         button.clicked.connect(self.launch_robot_control)
 
         for field_name, field_obj in data_fields.items():
             process_func = partial(self._process_field, field_name, field_obj)
-            if field_name == "linear_base":
+            if field_name == "linear_base":  # QRadioButton
                 field_obj.toggled.connect(process_func)
-            elif field_name == "ik_solver":
+            elif field_name == "ik_solver":  # QComboBox
                 field_obj.activated.connect(process_func)
-            else:
+            else:  # QLineEdit
                 field_obj.editingFinished.connect(process_func)
 
-    def _process_field(self, field_id, field_obj):
+    def _process_field(self, field_id: str, field_obj) -> None:
         # TODO fix excepts
-        if field_id in ["link_lengths", "joint_configuration", "robot_base_radius"]:
+        if isinstance(field_obj, QLineEdit):
             field_value = field_obj.text()
             if field_value != "":
                 if field_id == "link_lengths":
@@ -119,7 +118,7 @@ class Window(QMainWindow):
             field_value = field_obj.isChecked()
             self.linear_base = field_value
 
-    def launch_robot_control(self):
+    def launch_robot_control(self) -> None:
         robot = Robot(link_lengths=self.link_lengths,
                       ik_solver=self.ik_solver,
                       trajectory_generator=self.trajectory_generator,
@@ -131,7 +130,7 @@ class Window(QMainWindow):
 
 
 class ControlWindow(QWidget):
-    def __init__(self, robot):
+    def __init__(self, robot) -> None:
         super().__init__()
         self.robot = robot
         self.n_arm_joints = len(self.robot.link_lengths) - 1 if self.robot.linear_base else len(self.robot.link_lengths)
@@ -150,7 +149,7 @@ class ControlWindow(QWidget):
 
         self._create_window()
 
-    def _create_window(self):
+    def _create_window(self) -> None:
         main_layout = QHBoxLayout()
         layout = QVBoxLayout()
         self.setLayout(main_layout)
@@ -159,23 +158,26 @@ class ControlWindow(QWidget):
 
         self._create_visual_canvas(main_layout)
 
-        buttons = {}
+        buttons = {
+            "go_fk": QPushButton("Go (FK)"),
+            "go_ik": QPushButton("Go (IK)")
+        }
+
         fk_form_layout = QFormLayout()
         fk_data_fields = {}
         for joint_idx in range(self.n_arm_joints):
             fk_data_fields[f"Joint {joint_idx}"] = QLineEdit()
             fk_form_layout.addRow(f"Joint {joint_idx}:", fk_data_fields[f"Joint {joint_idx}"])
-        buttons["go_fk"] = QPushButton("Go (FK)")
 
         ik_form_layout = QFormLayout()
-        ik_data_fields = {}
-        ik_data_fields["Target Position"] = QLineEdit()
+        ik_data_fields = {
+            "Target Position": QLineEdit(),
+            "Target Orientation": QLineEdit(),
+            "Mirror": QRadioButton(),
+        }
         ik_form_layout.addRow("Target Position:", ik_data_fields["Target Position"])
-        ik_data_fields["Target Orientation"] = QLineEdit()
         ik_form_layout.addRow("Target Orientation:", ik_data_fields["Target Orientation"])
-        ik_data_fields["Mirror"] = QRadioButton()
         ik_form_layout.addRow("Mirror:", ik_data_fields["Mirror"])
-        buttons["go_ik"] = QPushButton("Go (IK)")
 
         layout.addLayout(fk_form_layout)
         layout.addWidget(buttons["go_fk"])
@@ -188,7 +190,7 @@ class ControlWindow(QWidget):
 
         self._connect_signals(fk_data_fields, ik_data_fields, buttons)
 
-    def _create_visual_canvas(self, layout):
+    def _create_visual_canvas(self, layout: QBoxLayout) -> None:
         self.canvas = VisualCanvas(self)
         layout.addWidget(self.canvas)
 
@@ -198,13 +200,15 @@ class ControlWindow(QWidget):
         # Start QTimer to update visual canvas
         self.timer.start()
 
-    def on_click(self, event):
+    def on_click(self, event) -> None:
         self.ik_target_position = [event.xdata/1000.0, event.ydata/1000.0]
         logger.debug(f"Click event received. Target: {self.ik_target_position}")
-        self.get_traj(move_type=MoveType.CARTESIAN, target_position=self.ik_target_position, target_orientation=self.ik_target_orientation)
+        self.get_traj(move_type=MoveType.CARTESIAN,
+                      target_position=self.ik_target_position,
+                      target_orientation=self.ik_target_orientation)
 
     # TODO implement click and drag
-    def _update_canvas_dynamic(self):
+    def _update_canvas_dynamic(self) -> None:
         if len(self.traj) != 0:
             while len(self.traj) > 0:
                 config = self.traj.pop(0)
@@ -215,14 +219,14 @@ class ControlWindow(QWidget):
         else:
             self.robot._plot(ax=self.canvas.axes, canvas=self.canvas, mirror=self.mirror)
 
-    def get_traj(self, move_type: MoveType, **kwargs):
+    def get_traj(self, move_type: MoveType, **kwargs) -> None:
         if move_type == MoveType.JOINT:
             self.animation_func = partial(self.robot.move_fk_animated, ax=self.canvas.axes, canvas=self.canvas)
         elif move_type == MoveType.CARTESIAN:
             self.animation_func = partial(self.robot.move_ik_animated, ax=self.canvas.axes, canvas=self.canvas, mirror=False)
         self.traj = self.robot.get_trajectory(move_type, **kwargs)
 
-    def _connect_signals(self, fk_data_fields, ik_data_fields, buttons):
+    def _connect_signals(self, fk_data_fields: dict, ik_data_fields: dict, buttons: dict) -> None:
         for joint_name, joint_field_obj in fk_data_fields.items():
             process_func = partial(self._process_field, joint_name, joint_field_obj)
             joint_field_obj.editingFinished.connect(process_func)
@@ -238,7 +242,7 @@ class ControlWindow(QWidget):
 
         buttons["go_ik"].clicked.connect(lambda: self.get_traj(move_type=MoveType.CARTESIAN, target_position=self.ik_target_position, target_orientation=self.ik_target_orientation))
 
-    def _process_field(self, field_name, field_obj):
+    def _process_field(self, field_name: str, field_obj) -> None:
         if "Joint" in field_name:
             field_value = field_obj.text()
             if field_value != "":
@@ -271,10 +275,11 @@ class ControlWindow(QWidget):
 
 class VisualCanvas(FigureCanvasQTAgg):
 
-    def __init__(self, parent=None, width=8, height=4, dpi=100):
+    def __init__(self, parent=None, width=8, height=4, dpi=100) -> None:
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
         super().__init__(self.fig)
+
 
 if __name__ == "__main__":
     app = QApplication([])

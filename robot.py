@@ -6,6 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 import matplotlib.animation as animation
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
 from matplotlib.patches import Circle
 from helper_functions.helper_functions import wrap_angles_to_pi, MoveType, calculate_joint_angles, create_logger
 from trajectories import TrajectoryBase
@@ -77,6 +78,7 @@ class Robot:
         return self.__robot_base_origin
 
     def __is_foldable(self) -> bool:
+
         foldable = True
         # linear base adds an extra "prismatic" link at base, exclude this for foldability check
         start_link_idx = 0 if not self.linear_base else 1
@@ -94,6 +96,7 @@ class Robot:
         return foldable
 
     def __configure_robot(self) -> None:
+
         if self.linear_base:
             self.__link_lengths.insert(0, 0.0)  # Insert linear base prismatic link
             self.__n_links += 1  # Update number of links
@@ -138,7 +141,12 @@ class Robot:
         logger.info(f"IK solver: {self.ik_solver}")
         logger.info(f"Trajectory Generator: {self.__trajectory_generator}\n")
 
-    def _plot(self, ax: Axes, canvas=None, mirror: bool = False, target_orientation: float = None) -> None:
+    def _plot(self,
+              ax: Axes,
+              canvas: FigureCanvasQTAgg = None,
+              mirror: bool = False,
+              target_orientation: float = None) -> None:
+
         ax.cla()
         ax.axis('scaled')
         ax.autoscale(False, "both", tight=True)
@@ -194,11 +202,19 @@ class Robot:
             canvas.draw()
             canvas.flush_events()
 
-    def move_fk_animated(self, target_configuration, ax: Axes, canvas):
+    def move_fk_animated(self,
+                         target_configuration: list[float],
+                         ax: Axes,
+                         canvas: FigureCanvasQTAgg) -> None:
+
         self.move_fk(target_configuration=target_configuration)
         self._plot(ax=ax, canvas=canvas)
 
-    def move_ik_animated(self, ik_params, ax: Axes, canvas, mirror):
+    def move_ik_animated(self,
+                         ik_params: list[float],
+                         ax: Axes,
+                         canvas: FigureCanvasQTAgg,
+                         mirror: bool) -> None:
         if self.linear_base:
             rail_increment, *target_configuration = ik_params
             self.move_fk(target_configuration=target_configuration)
@@ -208,7 +224,7 @@ class Robot:
             self.move_fk(target_configuration=target_configuration)
         self._plot(ax=ax, canvas=canvas, mirror=mirror)
 
-    def get_trajectory(self, move_type: MoveType, **kwargs):
+    def get_trajectory(self, move_type: MoveType, **kwargs) -> list[list[float]]:
         logger.debug(f"Getting trajectory of type: {move_type}")
         traj = []
 
@@ -238,7 +254,6 @@ class Robot:
                 self.__trajectory_generator.setup_trajectory(waypoints=(current_joint_value, joint_target))
                 _, joint_setpoints = self.__trajectory_generator.solve_traj()
                 traj.append(joint_setpoints)
-                self.__trajectory_generator.clear_traj()
             traj = list(zip(*traj))
 
         elif move_type == MoveType.JOINT:
@@ -257,7 +272,7 @@ class Robot:
 
         return traj
 
-    def move_rail(self, rail_length):
+    def move_rail(self, rail_length: float) -> None:
         if not self.linear_base:
             raise Exception("Cant move rail, no rail configured.")
         # Maintain x distances between vertices
@@ -275,7 +290,7 @@ class Robot:
         self.link_lengths = new_link_lengths
         self.joint_configuration[0] = new_link_lengths[0]
 
-    def update_robot(self, solutions_dict: dict):
+    def update_robot(self, solutions_dict: dict) -> None:
         self.joint_configuration = solutions_dict["joint_config"]
         self.mirrored_joint_configuration = solutions_dict["mirrored_joint_config"]
         self.vertices = solutions_dict["vertices"]
@@ -286,7 +301,8 @@ class Robot:
              move_type: MoveType,
              plot: bool = False,
              enable_animation: bool = True,
-             **kwargs):
+             **kwargs) -> None:
+
         if move_type == MoveType.JOINT:
             target_configuration = kwargs.get("target_configuration")
             target_configuration = wrap_angles_to_pi(target_configuration)
@@ -297,11 +313,16 @@ class Robot:
                     self._plot(ax=ax)
                     plt.show()
             else:
-                target_configuration_traj = self.get_trajectory(move_type=move_type, target_configuration=target_configuration)
+                target_configuration_traj = self.get_trajectory(move_type=move_type,
+                                                                target_configuration=target_configuration)
                 if plot:
                     fig, ax = plt.subplots()
                     animated_fk_plot_func = partial(self.move_fk_animated, ax=ax, canvas=None)
-                    ani = animation.FuncAnimation(fig, animated_fk_plot_func, target_configuration_traj, interval=1, repeat=False)
+                    ani = animation.FuncAnimation(fig,
+                                                  animated_fk_plot_func,
+                                                  target_configuration_traj,
+                                                  interval=1,
+                                                  repeat=False)
                     plt.show()
 
         elif move_type == MoveType.CARTESIAN:
@@ -320,7 +341,8 @@ class Robot:
                 elif not self.ik_solver.solved:
                     logger.warning("IK cannot be solved. Pick a more appropriate target.")
             else:
-                ik_traj = self.get_trajectory(move_type=move_type, target_position=target_position,
+                ik_traj = self.get_trajectory(move_type=move_type,
+                                              target_position=target_position,
                                               target_orientation=target_orientation)
                 if plot:
                     fig, ax = plt.subplots()
@@ -328,7 +350,7 @@ class Robot:
                     ani = animation.FuncAnimation(fig, animated_ik_plot_func, ik_traj, interval=1, repeat=False)
                     plt.show()
 
-    def move_fk(self, target_configuration):
+    def move_fk(self, target_configuration: list[float]) -> dict[str, list[float]]:
         logger.debug(f"Calling FK with target config: {target_configuration}")
         target_configuration = list(target_configuration)
         # Need to dummy joint angle for the linear prismatic joint to avoid indexing error
@@ -359,7 +381,10 @@ class Robot:
 
         return self.vertices
 
-    def move_ik(self, target_position, target_orientation, mirror):
+    def move_ik(self,
+                target_position: list[float, float],
+                target_orientation: float,
+                mirror: bool) -> None:
         logger.debug(f"Calling IK with target position: {target_position}, target orientation: {target_orientation}")
         # Setup ik solver target and solve
         self.ik_solver.setup_target(target_position=target_position, target_orientation=target_orientation)
