@@ -344,7 +344,7 @@ class ControlWindow(QWidget):
             elif field_name == 'Target Orientation':
                 self.ik_target_orientation = field_value
 
-            elif "joint" in field_name:  # Field name = "joint" + idx, for fk target
+            elif "Joint" in field_name:  # Field name = "Joint" + idx, for fk target
                 joint_idx = int(field_name[-1])  # Extracting joint idx
                 self.fk_joint_targets[joint_idx] = field_value
 
