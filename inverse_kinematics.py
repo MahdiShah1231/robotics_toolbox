@@ -24,6 +24,7 @@ class IKSolverBase(ABC):
     def setup_target(self,
                      target_position: list[float, float],
                      target_orientation: float) -> None:
+        self.solved = False
         self._target_position = list(map(lambda x: x * SCALE_TO_MM, target_position))  # Scaling target from m to mm
         self._target_orientation = wrap_angle_to_pi(target_orientation)
 
