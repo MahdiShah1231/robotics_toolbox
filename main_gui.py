@@ -5,11 +5,13 @@ from functools import partial
 import matplotlib
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QComboBox, QFormLayout, QRadioButton, QVBoxLayout, \
-    QPushButton, QMainWindow, QToolBar, QHBoxLayout, QBoxLayout
+    QPushButton, QMainWindow, QToolBar, QHBoxLayout, QBoxLayout, QDoubleSpinBox, QLabel
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
 from helper_functions.helper_functions import MoveType, create_logger
+from helper_functions.ik_options import ik_solvers
+from helper_functions.trajectory_generator_options import trajectory_generators
 from inverse_kinematics import FabrikSolver
 from robot import Robot
 from trajectories import QuinticPolynomialTrajectory
@@ -23,16 +25,17 @@ class Window(QMainWindow):
     def __init__(self) -> None:
         super().__init__(parent=None)
         self.setWindowTitle("RobotToolbox")
-        self._create_central_widget()
-        self._create_menu()
-        self._create_toolbar()
 
         self.link_lengths = [0.4, 0.3, 0.2]
         self.ik_solver = FabrikSolver()
         self.joint_configuration = None
         self.robot_base_radius = 0.1
         self.linear_base = True
-        self.trajectory_generator = QuinticPolynomialTrajectory()  # TODO add an option on GUI to change this
+        self.trajectory_generator = QuinticPolynomialTrajectory()
+
+        self._create_central_widget()
+        self._create_menu()
+        self._create_toolbar()
 
     def _create_central_widget(self) -> None:
         window = QWidget()
@@ -44,19 +47,37 @@ class Window(QMainWindow):
 
         data_fields = {
             "link_lengths": QLineEdit(),
-            "ik_solver": QComboBox(),
             "joint_configuration": QLineEdit(),
-            "robot_base_radius": QLineEdit(),
+            "robot_base_radius": QDoubleSpinBox(),
+            "ik_solver": QComboBox(),
+            "trajectory_generator": QComboBox(),
             "linear_base": QRadioButton("On"),
         }
-        data_fields["ik_solver"].addItem("--Select an algorithm--")
+
+        # Tooltips
+        data_fields["link_lengths"].setToolTip("The link lengths for each joint as comma separated values.")
+        data_fields["joint_configuration"].setToolTip("The starting joint angles "
+                                                      "for each joint as comma separated values.")
+        data_fields["robot_base_radius"].setToolTip("The radius of the robots circular base.")
+        data_fields["ik_solver"].setToolTip("The inverse kinematics solver for cartesian space control.")
+        data_fields["trajectory_generator"].setToolTip("The trajectory generator for "
+                                                       "animated motions between waypoints.")
+
+        # Configuring QWidgets
+        data_fields["link_lengths"].setText(','.join(str(val) for val in self.link_lengths))  # Setting defaults
         data_fields["ik_solver"].addItem("Fabrik")
+        data_fields["trajectory_generator"].addItem("Quintic Polynomial")
+        data_fields["robot_base_radius"].setMinimum(self.robot_base_radius)
+        data_fields["robot_base_radius"].setMaximum(1.0)
+        data_fields["robot_base_radius"].setSingleStep(0.1)
+        data_fields["linear_base"].setChecked(self.linear_base)
         environment = None  # TODO Implement
 
-        form_layout.addRow("Link Lengths:", data_fields["link_lengths"])
-        form_layout.addRow("Starting Joint Configuration:", data_fields["joint_configuration"])
-        form_layout.addRow("Robot Base Radius:", data_fields["robot_base_radius"])
-        form_layout.addRow("Inverse Kinematics Algorithm:", data_fields["ik_solver"])
+        form_layout.addRow("Link Lengths (m):", data_fields["link_lengths"])
+        form_layout.addRow("Starting Joint Configuration (rad):", data_fields["joint_configuration"])
+        form_layout.addRow("Robot Base Radius (m):", data_fields["robot_base_radius"])
+        form_layout.addRow("Inverse Kinematics Solver:", data_fields["ik_solver"])
+        form_layout.addRow("Trajectory Generator:", data_fields["trajectory_generator"])
         form_layout.addRow("Linear Base:", data_fields["linear_base"])
 
         main_window_layout.addLayout(form_layout)
@@ -79,44 +100,58 @@ class Window(QMainWindow):
 
         for field_name, field_obj in data_fields.items():
             process_func = partial(self._process_field, field_name, field_obj)
-            if field_name == "linear_base":  # QRadioButton
+
+            if isinstance(field_obj, QRadioButton):
                 field_obj.toggled.connect(process_func)
-            elif field_name == "ik_solver":  # QComboBox
+
+            elif isinstance(field_obj, QComboBox):
                 field_obj.activated.connect(process_func)
-            else:  # QLineEdit
+
+            elif isinstance(field_obj, QLineEdit):
                 field_obj.editingFinished.connect(process_func)
+
+            elif isinstance(field_obj, QDoubleSpinBox):
+                field_obj.valueChanged.connect(process_func)
 
     def _process_field(self, field_id: str, field_obj) -> None:
         # TODO fix excepts
         if isinstance(field_obj, QLineEdit):
             field_value = field_obj.text()
-            if field_value != "":
-                if field_id == "link_lengths":
-                    try:
-                        self.link_lengths = [float(length) for length in field_value.split(",")]
-                    except:
-                        raise ValueError("Link lengths must be comma separated numbers")
 
-                elif field_id == "joint_configuration":
-                    try:
-                        self.joint_configuration = [float(angle) for angle in field_value.split(",")]
-                    except:
-                        raise ValueError("Joint config must be comma separated numbers")
+            if field_id == "link_lengths":
+                try:
+                    self.link_lengths = [float(length) for length in field_value.split(",")]
+                except Exception:
+                    logger.error("Error processing link lengths", exc_info=True)
+                    logger.error("Must be comma separated numbers.")
 
-                elif field_id == "robot_base_radius":
-                    try:
-                        self.robot_base_radius = float(field_value)
-                    except:
-                        raise ValueError("Robot base must be a number")
+            elif field_id == "joint_configuration":
+                try:
+                    self.joint_configuration = [float(angle) for angle in field_value.split(",")]
+                except Exception:
+                    logger.error("Error processing joint configuration", exc_info=True)
+                    logger.error("Must be comma separated numbers.")
 
-        if field_id == "ik_solver":
+        elif isinstance(field_obj, QDoubleSpinBox):
+            field_value = field_obj.value()
+
+            if field_id == "robot_base_radius":
+                self.robot_base_radius = field_value
+
+        elif isinstance(field_obj, QComboBox):
             field_value = field_obj.currentText()
-            if field_value == "Fabrik":
-                self.ik_solver = FabrikSolver()
 
-        if field_id == "linear_base":
+            if field_id == "ik_solver":
+                self.ik_solver = ik_solvers[field_value]()
+
+            elif field_id == "trajectory_generator":
+                self.trajectory_generator = trajectory_generators[field_value]()
+
+        elif isinstance(field_obj, QRadioButton):
             field_value = field_obj.isChecked()
-            self.linear_base = field_value
+
+            if field_id == "linear_base":
+                self.linear_base = field_value
 
     def launch_robot_control(self) -> None:
         robot = Robot(link_lengths=self.link_lengths,
@@ -135,7 +170,7 @@ class ControlWindow(QWidget):
         self.robot = robot
         self.n_arm_joints = len(self.robot.link_lengths) - 1 if self.robot.linear_base else len(self.robot.link_lengths)
         self.fk_joint_targets = [0.0] * self.n_arm_joints
-        self.ik_target_position = [self.robot.vertices['x'][-1], self.robot.vertices['y'][-1]]
+        self.ik_target_position = [0.0, 0.0]
         self.ik_target_orientation = None
         self.mirror = False
         self.canvas = None
@@ -166,16 +201,34 @@ class ControlWindow(QWidget):
         fk_form_layout = QFormLayout()
         fk_data_fields = {}
         for joint_idx in range(self.n_arm_joints):
-            fk_data_fields[f"Joint {joint_idx}"] = QLineEdit()
+            spinbox = QDoubleSpinBox()
+            spinbox.setRange(-3.14, 3.14)
+            spinbox.setSingleStep(0.01)
+            spinbox.setSuffix(" rad")
+            fk_data_fields[f"Joint {joint_idx}"] = spinbox
             fk_form_layout.addRow(f"Joint {joint_idx}:", fk_data_fields[f"Joint {joint_idx}"])
 
         ik_form_layout = QFormLayout()
         ik_data_fields = {
-            "Target Position": QLineEdit(),
-            "Target Orientation": QLineEdit(),
+            "Target Position x": QDoubleSpinBox(),
+            "Target Position y": QDoubleSpinBox(),
+            "Target Orientation": QDoubleSpinBox(),
             "Mirror": QRadioButton(),
         }
-        ik_form_layout.addRow("Target Position:", ik_data_fields["Target Position"])
+
+        ik_data_fields["Target Position x"].setSingleStep(0.1)
+        ik_data_fields["Target Position x"].setSuffix(" m")
+        ik_data_fields["Target Position y"].setSingleStep(0.1)
+        ik_data_fields["Target Position y"].setSuffix(" m")
+        ik_data_fields["Target Orientation"].setRange(-3.14, 3.14)
+        ik_data_fields["Target Orientation"].setSingleStep(0.1)
+        ik_data_fields["Target Orientation"].setSuffix(" rad")
+
+        target_position_layout = QHBoxLayout()
+        target_position_layout.addWidget(ik_data_fields["Target Position x"])
+        target_position_layout.addWidget(ik_data_fields["Target Position y"])
+
+        ik_form_layout.addRow("Target Position (x,y):", target_position_layout)
         ik_form_layout.addRow("Target Orientation:", ik_data_fields["Target Orientation"])
         ik_form_layout.addRow("Mirror:", ik_data_fields["Mirror"])
 
@@ -227,50 +280,54 @@ class ControlWindow(QWidget):
         self.traj = self.robot.get_trajectory(move_type, **kwargs)
 
     def _connect_signals(self, fk_data_fields: dict, ik_data_fields: dict, buttons: dict) -> None:
+        # Processing the FK data fields
         for joint_name, joint_field_obj in fk_data_fields.items():
             process_func = partial(self._process_field, joint_name, joint_field_obj)
-            joint_field_obj.editingFinished.connect(process_func)
+            joint_field_obj.valueChanged.connect(process_func)
 
+        # Processing the IK data fields
         for field_name, field_obj in ik_data_fields.items():
             process_func = partial(self._process_field, field_name, field_obj)
-            if field_name == "Mirror":
+
+            if isinstance(field_obj, QRadioButton):
                 field_obj.toggled.connect(process_func)
-            else:
+
+            elif isinstance(field_obj, QLineEdit):
                 field_obj.editingFinished.connect(process_func)
 
-        buttons["go_fk"].clicked.connect(lambda: self.get_traj(move_type=MoveType.JOINT, target_configuration=self.fk_joint_targets))
+            elif isinstance(field_obj, QDoubleSpinBox):
+                field_obj.valueChanged.connect(process_func)
 
-        buttons["go_ik"].clicked.connect(lambda: self.get_traj(move_type=MoveType.CARTESIAN, target_position=self.ik_target_position, target_orientation=self.ik_target_orientation))
+        buttons["go_fk"].clicked.connect(lambda: self.get_traj(move_type=MoveType.JOINT,
+                                                               target_configuration=self.fk_joint_targets))
+
+        buttons["go_ik"].clicked.connect(lambda: self.get_traj(move_type=MoveType.CARTESIAN,
+                                                               target_position=self.ik_target_position,
+                                                               target_orientation=self.ik_target_orientation))
 
     def _process_field(self, field_name: str, field_obj) -> None:
-        if "Joint" in field_name:
-            field_value = field_obj.text()
-            if field_value != "":
-                try:
-                    idx = int(field_name[-1])
-                    self.fk_joint_targets[idx] = float(field_value)
-                except:
-                    raise ValueError("Error for FK")
+        if isinstance(field_obj, QDoubleSpinBox):
+            field_value = field_obj.value()
 
-        elif field_name == 'Target Position':
-            field_value = field_obj.text()
-            if field_value != "":
-                try:
-                    self.ik_target_position = [float(coordinate) for coordinate in field_value.split(",")]
-                except:
-                    raise ValueError('Error for IK target')
+            if field_name == 'Target Position x':
+                self.ik_target_position[0] = field_value
 
-        elif field_name == 'Target Orientation':
-            field_value = field_obj.text()
-            if field_value != "":
-                try:
-                    self.ik_target_orientation = float(field_value)
-                except:
-                    raise ValueError('Error for IK target')
+            elif field_name == 'Target Position y':
+                self.ik_target_position[1] = field_value
 
-        elif field_name == 'Mirror':
+            elif field_name == 'Target Orientation':
+                self.ik_target_orientation = field_value
+
+            else:  # Field name = "joint" + idx, for fk target
+                joint_idx = int(field_name[-1])  # Extracting joint idx
+                self.fk_joint_targets[joint_idx] = field_value
+
+        elif isinstance(field_obj, QRadioButton):
             field_value = field_obj.isChecked()
-            self.mirror = field_value
+
+            if field_name == 'Mirror':
+                self.mirror = field_value
+                logger.warning("Mirror functionality currently broken")
 
 
 class VisualCanvas(FigureCanvasQTAgg):
