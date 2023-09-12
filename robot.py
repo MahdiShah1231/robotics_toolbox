@@ -376,6 +376,10 @@ class Robot:
             reference_angle += target_configuration[link_index]
         self.joint_configuration = calculate_joint_angles(self.vertices, self.linear_base)
 
+        # Resetting the prismatic link
+        if self.linear_base:
+            self.joint_configuration[0] = target_configuration[0] * np.sign(self.vertices["x"][1])
+
         logger.debug(f"Final robot configuration: {self.joint_configuration}")
         logger.debug(f"Final robot vertices: {self.vertices}")
 
