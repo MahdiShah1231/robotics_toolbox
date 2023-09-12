@@ -6,6 +6,7 @@ import matplotlib
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QComboBox, QFormLayout, QRadioButton, QVBoxLayout, \
     QPushButton, QMainWindow, QToolBar, QHBoxLayout, QBoxLayout, QDoubleSpinBox, QLabel
+from matplotlib.backend_bases import MouseButton
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
 
@@ -272,11 +273,15 @@ class ControlWindow(QWidget):
         self.timer.start()
 
     def on_click(self, event) -> None:
-        self.ik_target_position = [event.xdata/1000.0, event.ydata/1000.0]
-        logger.debug(f"Click event received. Target: {self.ik_target_position}")
-        self.get_traj(move_type=MoveType.CARTESIAN,
-                      target_position=self.ik_target_position,
-                      target_orientation=self.ik_target_orientation)
+        if event.button == MouseButton.LEFT:
+            self.ik_target_position = [event.xdata/1000.0, event.ydata/1000.0]
+            logger.debug(f"Click event received. Target: {self.ik_target_position}")
+            self.get_traj(move_type=MoveType.CARTESIAN,
+                          target_position=self.ik_target_position,
+                          target_orientation=self.ik_target_orientation)
+
+        elif event.button == MouseButton.RIGHT:
+            logger.warning("Context menu to be implemented")  # TODO implement context menu
 
     # TODO implement click and drag
     def _update_canvas_dynamic(self) -> None:
