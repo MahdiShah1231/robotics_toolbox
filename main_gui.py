@@ -113,45 +113,63 @@ class Window(QMainWindow):
             elif isinstance(field_obj, QDoubleSpinBox):
                 field_obj.valueChanged.connect(process_func)
 
-    def _process_field(self, field_id: str, field_obj) -> None:
+            else:
+                logger.warning(f"Unimplemented field: {field_name}")
+
+    def _process_field(self, field_name: str, field_obj) -> None:
         # TODO fix excepts
         if isinstance(field_obj, QLineEdit):
             field_value = field_obj.text()
 
-            if field_id == "link_lengths":
+            if field_name == "link_lengths":
                 try:
                     self.link_lengths = [float(length) for length in field_value.split(",")]
                 except Exception:
                     logger.error("Error processing link lengths", exc_info=True)
                     logger.error("Must be comma separated numbers.")
 
-            elif field_id == "joint_configuration":
+            elif field_name == "joint_configuration":
                 try:
                     self.joint_configuration = [float(angle) for angle in field_value.split(",")]
                 except Exception:
                     logger.error("Error processing joint configuration", exc_info=True)
                     logger.error("Must be comma separated numbers.")
 
+            else:
+                logger.warning(f"Unimplemented QLineEdit: {field_name}. Value: {field_value}")
+
         elif isinstance(field_obj, QDoubleSpinBox):
             field_value = field_obj.value()
 
-            if field_id == "robot_base_radius":
+            if field_name == "robot_base_radius":
                 self.robot_base_radius = field_value
+
+            else:
+                logger.warning(f"Unimplemented QDoubleSpinBox: {field_name}. Value: {field_value}")
 
         elif isinstance(field_obj, QComboBox):
             field_value = field_obj.currentText()
 
-            if field_id == "ik_solver":
+            if field_name == "ik_solver":
                 self.ik_solver = ik_solvers[field_value]()
 
-            elif field_id == "trajectory_generator":
+            elif field_name == "trajectory_generator":
                 self.trajectory_generator = trajectory_generators[field_value]()
+
+            else:
+                logger.warning(f"Unimplemented QComboBox: {field_name}. Value: {field_value}")
 
         elif isinstance(field_obj, QRadioButton):
             field_value = field_obj.isChecked()
 
-            if field_id == "linear_base":
+            if field_name == "linear_base":
                 self.linear_base = field_value
+
+            else:
+                logger.warning(f"Unimplemented QRadioButton: {field_name}. Value: {field_value}")
+
+        else:
+            logger.warning(f"Unimplemented QObject: {field_name}. Type: {type(field_obj)}")
 
     def launch_robot_control(self) -> None:
         robot = Robot(link_lengths=self.link_lengths,
@@ -298,6 +316,9 @@ class ControlWindow(QWidget):
             elif isinstance(field_obj, QDoubleSpinBox):
                 field_obj.valueChanged.connect(process_func)
 
+            else:
+                logger.warning(f"Unimplemented field: {field_name}")
+
         buttons["go_fk"].clicked.connect(lambda: self.get_traj(move_type=MoveType.JOINT,
                                                                target_configuration=self.fk_joint_targets))
 
@@ -318,9 +339,12 @@ class ControlWindow(QWidget):
             elif field_name == 'Target Orientation':
                 self.ik_target_orientation = field_value
 
-            else:  # Field name = "joint" + idx, for fk target
+            elif "joint" in field_name:  # Field name = "joint" + idx, for fk target
                 joint_idx = int(field_name[-1])  # Extracting joint idx
                 self.fk_joint_targets[joint_idx] = field_value
+
+            else:
+                logger.warning(f"Unimplemented QDoubleSpinBox: {field_name}. Value: {field_value}")
 
         elif isinstance(field_obj, QRadioButton):
             field_value = field_obj.isChecked()
@@ -328,6 +352,12 @@ class ControlWindow(QWidget):
             if field_name == 'Mirror':
                 self.mirror = field_value
                 logger.warning("Mirror functionality currently broken")
+
+            else:
+                logger.warning(f"Unimplemented QRadioButton: {field_name}. Value: {field_value}")
+
+        else:
+            logger.warning(f"Unimplemented QObject: {field_name}. Type: {type(field_obj)}")
 
 
 class VisualCanvas(FigureCanvasQTAgg):
