@@ -24,8 +24,8 @@ First start out by configuring the robot parameters from line 46.
 `robot_base_radius` - This will be the radius of the circular base.  
 `starting_joint_configuration`  - [OPTIONAL] This is the starting joint configuration for the SCARA. If its left as `NONE`, defaults will be calculated to be folded if possible or otherwise outstretched.  
 `linear_base` - This will enable the usage of a robot transfer unit, to move the robot across the horizontal axis.  
-`ik_solver` - This sets the IK Solver for the Inverse Kinematics calculations.
-`trajectory_generator` - This sets the trajectory generator for the animated motions.
+`ik_solver` - This sets the IK Solver for the Inverse Kinematics calculations.  
+`trajectory_generator` - This sets the trajectory generator for the animated motions.  
 
 Once that's done, use the helper function `create_robot()` to create a robot with the previously configured parameters. This should be done already line 54 with the arguments being passed as the 
 variables configured from the last step. 
