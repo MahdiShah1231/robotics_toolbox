@@ -16,7 +16,20 @@ def create_robot(link_lengths: list[float],
                  robot_base_radius: float = None,
                  linear_base: bool = False,
                  environment: Union[str, list[float]] = None) -> Robot:
+    """Create a Robot object with the given parameters.
 
+         Args:
+             link_lengths: Link lengths for the robot. Length of the list = number of links.
+             ik_solver: IK Solver for the Inverse Kinematics calculations.
+             trajectory_generator: Trajectory generator for the animated motions.
+             joint_configuration: Starting joint configuration. OPTIONAL.
+             robot_base_radius: Radius of the circular base.
+             linear_base: Enables/disables use of a linear rail to move along horizontal axis.
+             environment: To be implemented.
+
+         Returns:
+             An initialised Robot object.
+    """
     robot = Robot(link_lengths=link_lengths,
                   ik_solver=ik_solver,
                   trajectory_generator=trajectory_generator,
@@ -32,7 +45,13 @@ def move(robot: Robot,
          move_type: MoveType,
          enable_animation: bool = True,
          **kwargs) -> None:
+    """Move the robot either in cartesian or joint space.
 
+        Args:
+            robot: An initialised Robot object.
+            move_type: MoveType enum specifying the coordinate space of the motion command.
+            enable_animation: Dictates whether to display animated motions or snap into place.
+    """
     robot.move(move_type=move_type,
                plot=True,
                enable_animation=enable_animation,
@@ -59,18 +78,9 @@ if __name__ == '__main__':
                      linear_base=linear_base,
                      environment=None)
 
-    joint_space_move = MoveType.JOINT
-    cartesian_space_move = MoveType.CARTESIAN
+    # Motion types
+    # MoveType.JOINT  = Joint Space Motion (Forward Kinematics)
+    # MoveType.CARTESIAN = Cartesian Space Motion (Inverse Kinematics)
 
-    # Joint space movements using wrapper function
-    # Pass move_type = MoveType.JOINT, and send a keyword argument "target_configuration"
-
-    # Example joint space cmd, uncomment below
-    move(robot=r, move_type=joint_space_move, target_configuration=[1.57,1.57,0])
-
-    # Cartesian space movements using wrapper function
-    # Pass move_type = MoveType.CARTESIAN, and send keyword argument "target_position" and "target_orientation"
-
-    # Example cartesian space cmd, uncomment below
-    move(robot=r, move_type=cartesian_space_move, target_position=[1.5,0.6], target_orientation=np.pi / 2, mirror=False)
+    # Insert Motion Commands below using move()
 

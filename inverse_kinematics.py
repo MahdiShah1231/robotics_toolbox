@@ -12,9 +12,21 @@ logger = create_logger(module_name=__name__, level=logging.INFO)  # Change debug
 
 
 class IKSolverBase(ABC):
+    """Abstract Base Class for an IK solver.
+
+    Attributes:
+        solved: Bool state of the IK solver solution.
+    """
+
     def __init__(self,
                  error_tolerance: float,
                  max_iterations: int) -> None:
+        """Initialise the base IK solver.
+
+        Args:
+            error_tolerance: The allowable tolerance for the IK solution.
+            max_iterations: The maximum number of iterations allowed to converge to a solution.
+        """
         self.solved = False
         self._error_tolerance = error_tolerance
         self._max_iterations = max_iterations
@@ -24,9 +36,18 @@ class IKSolverBase(ABC):
     def setup_target(self,
                      target_position: list[float, float],
                      target_orientation: float) -> None:
+        """Set up the IK solver target.
+
+        Args:
+            target_position: List containing the cartesian space (x,y) target position.
+            target_orientation: Float containing the target approach angle in radians.
+        """
         self.solved = False
         self._target_position = list(map(lambda x: x * SCALE_TO_MM, target_position))  # Scaling target from m to mm
-        self._target_orientation = wrap_angle_to_pi(target_orientation)
+        if target_orientation is not None:
+            self._target_orientation = wrap_angle_to_pi(target_orientation)
+        else:
+            self._target_orientation = None
 
     @abstractmethod
     def solve(self,
@@ -36,14 +57,29 @@ class IKSolverBase(ABC):
               robot_base_origin: list[float],
               start_config: list[float],
               mirror: bool) -> dict:
+        """Abstract method to be implemented.
 
+        Args:
+            vertices: Current vertices.
+            link_lengths: Link lengths.
+            linear_base: Linear rail active state.
+            robot_base_origin: Cartesian (x,y) position of the robot base origin.
+            start_config: Starting joint configurations.
+            mirror: Bool indicating whether to calculate the alternate IK solution.
+
+        Returns:
+            A Dictionary containing the new states of the robot at the IK solution.
+        """
         raise NotImplementedError
 
 
 class FabrikSolver(IKSolverBase):
+    """A derived IK Solver using the FABRIK iterative IK algorithm."""
+
     def __init__(self,
                  error_tolerance: float = 0.000001,
                  max_iterations: int = 100000) -> None:
+        """Initialise the derived IK solver."""
         super().__init__(error_tolerance=error_tolerance,
                          max_iterations=max_iterations)
 
@@ -54,7 +90,19 @@ class FabrikSolver(IKSolverBase):
               robot_base_origin: list[float],
               start_config: dict[str, list[float]],
               mirror: bool) -> dict:
+        """Solve the IK problem using the FABRIK algorithm.
 
+        Args:
+            vertices: Current vertices.
+            link_lengths: Link lengths.
+            linear_base: Linear rail active state.
+            robot_base_origin: Cartesian (x,y) position of the robot base origin.
+            start_config: Starting joint configurations.
+            mirror: Bool indicating whether to calculate the alternate IK solution.
+
+        Returns:
+            A Dictionary containing the new states of the robot at the IK solution.
+        """
         if mirror:
             logger.warning("Mirror functionality doesn't currently work")
 
@@ -255,6 +303,7 @@ class FabrikSolver(IKSolverBase):
                                   vertices: dict[str, list[float]],
                                   linear_base: bool,
                                   n_links: int) -> dict[str, list[float]]:
+        """Calculate the alternate configuration from the IK solution."""
 
         mirrored_vertices = copy.deepcopy(vertices)  # Start by copying current vertices
 
@@ -295,6 +344,7 @@ class FabrikSolver(IKSolverBase):
         return mirrored_vertices
 
     def check_collisions(self):
+        # TODO implement
         raise NotImplementedError
 
 

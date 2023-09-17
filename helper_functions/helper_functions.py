@@ -6,7 +6,15 @@ from enum import Enum
 
 
 def create_logger(module_name: str, level: int) -> logging.Logger:
+    """Create a logger.
 
+    Args:
+        module_name: The __name__ property of the calling module.
+        level: The desired logging level of the logger.
+
+    Returns:
+        A logging.Logger object.
+    """
     logger = logging.getLogger(module_name)
     logger.setLevel(level)
     logger_handler = logging.StreamHandler()
@@ -18,13 +26,21 @@ def create_logger(module_name: str, level: int) -> logging.Logger:
 
 
 class MoveType(Enum):
-
+    """Enum class for specifying coordinate space for move commands."""
     JOINT = "Joint"  # Joint space command, Forward Kinematics
     CARTESIAN = "Cartesian"  # Cartesian space command, Inverse Kinematics
 
 
 def calculate_joint_angles(vertices: dict[str, list[float]], linear_base: bool) -> list[float]:
+    """Calculate joint angles given the vertices of the robot and active state of linear rail.
 
+    Args:
+        vertices: The current vertices.
+        linear_base: The active state of the linear rail.
+
+    Returns:
+        A list of floats giving the joint angles of the robot.
+    """
     joint_angles = [0.0] * (len(vertices["x"]) - 1)
     old_direction_vector = [1, 0]  # Starting reference vector (taking angle from positive x)
     last_vertex_index = len(vertices["x"]) - 1
@@ -51,12 +67,17 @@ def calculate_joint_angles(vertices: dict[str, list[float]], linear_base: bool) 
     return joint_angles
 
 
-def wrap_angle_to_pi(angle: float) -> Union[float, None]:
+def wrap_angle_to_pi(angle: float) -> float:
+    """Wrap angle between -pi and pi.
 
-    if angle is None:
-        return angle
+    Args:
+        angle: The angle to be wrapped.
+
+    Returns:
+        A float of the wrapped angle.
+    """
     # Wrap angle if angle > pi
-    elif angle > np.pi:
+    if angle > np.pi:
 
         # Floor div to find int number of times the angle wraps around pi
         wrap_count = angle // np.pi
@@ -79,15 +100,17 @@ def wrap_angle_to_pi(angle: float) -> Union[float, None]:
     return wrapped_angle
 
 
-def wrap_angles_to_pi(angles: Union[list[float], float]) -> Union[list[float], None]:
+def wrap_angles_to_pi(angles: list[float]) -> list[float]:
+    """Wrap a list of angles between -pi and pi.
 
-    if angles is not None:
-        # Call wrap_angle_to_pi on given list of angles
-        wrapped_angles = list(map(wrap_angle_to_pi, angles))
+    Args:
+        angles: The list of angles to be wrapped.
 
-    # No angles given, return None
-    else:
-        wrapped_angles = angles
+    Returns:
+        A list of the wrapped angles.
+    """
+    # Call wrap_angle_to_pi on given list of angles
+    wrapped_angles = list(map(wrap_angle_to_pi, angles))
 
     return wrapped_angles
 
@@ -95,7 +118,16 @@ def wrap_angles_to_pi(angles: Union[list[float], float]) -> Union[list[float], N
 def find_new_vertex(link_length: float,
                     vertex1: list[float, float],
                     vertex2: list[float, float]) -> list[float, float]:
+    """Find an intermediate vertex along the line from vertex1 -> vertex2 whilst obeying the link length.
 
+    Args:
+        link_length: The link length to obey.
+        vertex1: The starting vertex of the link.
+        vertex2: The ending vertex of the link.
+
+    Returns:
+        A list containing the (x,y) cartesian position of the intermediate vertex.
+    """
     direction_vector = np.subtract(vertex2, vertex1)  # Pointing from v1 -> v2
     length = np.linalg.norm(direction_vector)
     scaled_direction_vector = (direction_vector / length) * link_length
@@ -105,6 +137,7 @@ def find_new_vertex(link_length: float,
 
 
 def draw_environment(robot_base_radius: float, workspace_width: float = 950.0, workspace_height: float = 950.0) -> None:
+    # TODO implement properly
     # Param inconsistencies
 
     vertices = [(0, -robot_base_radius),
@@ -118,7 +151,15 @@ def draw_environment(robot_base_radius: float, workspace_width: float = 950.0, w
 
 
 def check_link_lengths(link_lengths: list[float], vertices: dict[str, list[float]]) -> None:
+    """Verify the link lengths of the robot after motions.
 
+    Due to imprecision in the floating point calculations, the link lengths might deviate slightly when setting
+    vertices. This checks if the link lengths stay within a tolerance of 1e-3.
+
+    Args:
+        link_lengths: The desired link lengths.
+        vertices: The current vertices.
+    """
     # Checking links from first to last
     for i in range(len(vertices["x"]) - 1):
         link_length = link_lengths[i]
@@ -132,7 +173,17 @@ def check_link_lengths(link_lengths: list[float], vertices: dict[str, list[float
                                                           f" {link_length, new_link_length}"
 
 
-def validate_target(target: list[float], linear_base: bool, arm_reach: float) -> tuple[bool, float]:
+def validate_target(target: list[float, float], linear_base: bool, arm_reach: float) -> tuple[bool, float]:
+    """Validate an IK target for a cartesian space move command.
+
+    Args:
+        target: A list containing the (x,y) cartesian space target position.
+        linear_base: The bool active state of the linear rail.
+        arm_reach: The maximum articulated arm reach.
+
+    Returns:
+        A tuple containing a bool to indicate the validity of the target, and a float to show the target's distance.
+    """
     valid_target = False
 
     if linear_base:
