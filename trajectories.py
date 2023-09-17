@@ -6,7 +6,10 @@ from matplotlib import pyplot as plt
 
 
 class TrajectoryBase(ABC):
+    """Abstract Base Class for a trajectory generator."""
+
     def __init__(self) -> None:
+        """Initialise the base trajectory generator."""
         self._waypoints = ()
         self._traj_time = None
         self._frequency = None
@@ -17,6 +20,13 @@ class TrajectoryBase(ABC):
                          waypoints: tuple[float, float],
                          time: float = 3.0,
                          frequency: int = 100) -> None:
+        """Set up the trajectory waypoints.
+
+        Args:
+            waypoints: The trajectory waypoints (x,y), start and finish.
+            time: The time taken to complete the trajectory.
+            frequency: The sampling frequency of the trajectory points.
+        """
         self._clear_traj()  # First clear any existing solutions
         self._waypoints = waypoints
         self._traj_time = time
@@ -24,13 +34,16 @@ class TrajectoryBase(ABC):
 
     @abstractmethod
     def solve_traj(self) -> tuple[numpy.ndarray, list[float]]:
+        """Abstract method to be implemented."""
         raise NotImplementedError
 
     def _clear_traj(self) -> None:
+        """Clear the saved trajectory."""
         self._t_values = []
         self._setpoints = []
 
     def plot_traj(self) -> None:
+        """Plot the saved trajectory."""
         fig, ax = plt.subplots()
         ax.set_xlim([0, self._traj_time])
         ax.plot(self._t_values, self._setpoints)
@@ -38,6 +51,11 @@ class TrajectoryBase(ABC):
 
 
 class QuinticPolynomialTrajectory(TrajectoryBase):
+    """A derived trajectory generator to create a quintic polynomial trajectory.
+
+    Used to solve trajectories with 6 constraints on starting and final positions, velocities and accelerations.
+
+    """
     # a0 + a1t + a2t^2 + a3t^3 + a4t^4 + a5t^5 = final_position
     # 0a0 + a1 + 2a2t + 3a3t^2 + 4a4t^3 + 5a5t^4 = final_velocity = 0
     # 0a0 + 0a1 + 2a2 + 6a3t + 12a4t^2 + 20a5t^3 = final_acceleration = 0
@@ -45,10 +63,17 @@ class QuinticPolynomialTrajectory(TrajectoryBase):
     # 0 + a1 + 0 + 0 + 0 + 0 = initial velocity = 0
     # 0 + 0 + 2a2 + 0 + 0 + 0 = initial_acceleration = 0
     # Ax = b
+
     def __init__(self) -> None:
+        """Initialise the quintic polynomial generator."""
         super().__init__()
 
-    def solve_traj(self) -> tuple[numpy.ndarray, list[float]]:
+    def solve_traj(self) -> tuple[numpy.ndarray[float], list[float]]:
+        """Solve the quintic polynomial trajectory.
+
+        Returns:
+            A tuple containing the sampled time points and the corresponding setpoints.
+        """
         setpoints = []
         # Ax = b, solving for x (matrix of coefficients a0 -> a5) to give trajectory going from initial setpoint
         # to final setpoint in t = traj_time

@@ -5,7 +5,7 @@ from functools import partial
 import matplotlib
 from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QComboBox, QFormLayout, QRadioButton, QVBoxLayout, \
-    QPushButton, QMainWindow, QToolBar, QHBoxLayout, QBoxLayout, QDoubleSpinBox, QLabel
+    QPushButton, QMainWindow, QToolBar, QHBoxLayout, QBoxLayout, QDoubleSpinBox
 from matplotlib.backend_bases import MouseButton
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -21,24 +21,28 @@ matplotlib.use('Qt5Agg')
 logger = create_logger(module_name=__name__, level=logging.INFO)  # Change debug level as needed
 
 
-class Window(QMainWindow):
+class ConfigureRobotWindow(QMainWindow):
+    """A QMainWindow to configure the robot class."""
 
     def __init__(self) -> None:
+        """Initialises the configure robot window."""
         super().__init__(parent=None)
-        self.setWindowTitle("RobotToolbox")
+        self.setWindowTitle("ConfigureRobot")
 
-        self.link_lengths = [0.4, 0.3, 0.2]
-        self.ik_solver = FabrikSolver()
-        self.joint_configuration = None
-        self.robot_base_radius = 0.1
-        self.linear_base = True
-        self.trajectory_generator = QuinticPolynomialTrajectory()
+        # Defaults
+        self.__link_lengths = [0.4, 0.3, 0.2]
+        self.__ik_solver = FabrikSolver()
+        self.__joint_configuration = None
+        self.__robot_base_radius = 0.1
+        self.__linear_base = True
+        self.__trajectory_generator = QuinticPolynomialTrajectory()
 
         self._create_central_widget()
         self._create_menu()
         self._create_toolbar()
 
     def _create_central_widget(self) -> None:
+        """Create the central widget with all the entry fields."""
         window = QWidget()
         window.setGeometry(100, 100, 280, 80)
         main_window_layout = QVBoxLayout()
@@ -58,20 +62,20 @@ class Window(QMainWindow):
         # Tooltips
         data_fields["link_lengths"].setToolTip("The link lengths for each joint as comma separated values.")
         data_fields["joint_configuration"].setToolTip("The starting joint angles "
-                                                      "for each joint as comma separated values.")
+                                                      "for each joint as comma separated values. Can be left empty.")
         data_fields["robot_base_radius"].setToolTip("The radius of the robots circular base.")
         data_fields["ik_solver"].setToolTip("The inverse kinematics solver for cartesian space control.")
         data_fields["trajectory_generator"].setToolTip("The trajectory generator for "
                                                        "animated motions between waypoints.")
 
         # Configuring QWidgets
-        data_fields["link_lengths"].setText(','.join(str(val) for val in self.link_lengths))  # Setting defaults
+        data_fields["link_lengths"].setText(','.join(str(val) for val in self.__link_lengths))  # Setting defaults
         data_fields["ik_solver"].addItem("Fabrik")
         data_fields["trajectory_generator"].addItem("Quintic Polynomial")
-        data_fields["robot_base_radius"].setMinimum(self.robot_base_radius)
+        data_fields["robot_base_radius"].setMinimum(self.__robot_base_radius)
         data_fields["robot_base_radius"].setMaximum(1.0)
         data_fields["robot_base_radius"].setSingleStep(0.1)
-        data_fields["linear_base"].setChecked(self.linear_base)
+        data_fields["linear_base"].setChecked(self.__linear_base)
         environment = None  # TODO Implement
 
         form_layout.addRow("Link Lengths (m):", data_fields["link_lengths"])
@@ -88,15 +92,28 @@ class Window(QMainWindow):
         self._connect_signals(data_fields, create_robot_button)
 
     def _create_menu(self) -> None:
+        """Create a menu bar."""
+        # TODO implement features
         menu = self.menuBar().addMenu("&Menu")
         menu.addAction("&Exit", self.close)
 
     def _create_toolbar(self) -> None:
+        """Create a toolbar"""
+        # TODO implement features
         tools = QToolBar()
         tools.addAction("Exit", self.close)
         self.addToolBar(tools)
 
     def _connect_signals(self, data_fields: dict, button: QPushButton) -> None:
+        """Connect Qt signals and slots.
+
+        The signals from the QWidgets used to gather information about the robot configuration are each connected to a
+        slot.
+
+        Args:
+            data_fields: A dictionary containing the QWidgets used to gather robot configuration information.
+            button: The QPushButton used to launch the control window.
+        """
         button.clicked.connect(self.launch_robot_control)
 
         for field_name, field_obj in data_fields.items():
@@ -118,20 +135,25 @@ class Window(QMainWindow):
                 logger.warning(f"Unimplemented field: {field_name}")
 
     def _process_field(self, field_name: str, field_obj) -> None:
-        # TODO fix excepts
+        """Process signal from the robot configuration QWidget.
+
+        Args:
+            field_name: Signal emitting QWidget's name in the data fields dictionary.
+            field_obj: Signal emitting QWidget object.
+        """
         if isinstance(field_obj, QLineEdit):
             field_value = field_obj.text()
 
             if field_name == "link_lengths":
                 try:
-                    self.link_lengths = [float(length) for length in field_value.split(",")]
+                    self.__link_lengths = [float(length) for length in field_value.split(",")]
                 except Exception:
                     logger.error("Error processing link lengths", exc_info=True)
                     logger.error("Must be comma separated numbers.")
 
             elif field_name == "joint_configuration":
                 try:
-                    self.joint_configuration = [float(angle) for angle in field_value.split(",")]
+                    self.__joint_configuration = [float(angle) for angle in field_value.split(",")]
                 except Exception:
                     logger.error("Error processing joint configuration", exc_info=True)
                     logger.error("Must be comma separated numbers.")
@@ -143,7 +165,7 @@ class Window(QMainWindow):
             field_value = field_obj.value()
 
             if field_name == "robot_base_radius":
-                self.robot_base_radius = field_value
+                self.__robot_base_radius = field_value
 
             else:
                 logger.warning(f"Unimplemented QDoubleSpinBox: {field_name}. Value: {field_value}")
@@ -152,10 +174,10 @@ class Window(QMainWindow):
             field_value = field_obj.currentText()
 
             if field_name == "ik_solver":
-                self.ik_solver = ik_solvers[field_value]()
+                self.__ik_solver = ik_solvers[field_value]()
 
             elif field_name == "trajectory_generator":
-                self.trajectory_generator = trajectory_generators[field_value]()
+                self.__trajectory_generator = trajectory_generators[field_value]()
 
             else:
                 logger.warning(f"Unimplemented QComboBox: {field_name}. Value: {field_value}")
@@ -164,7 +186,7 @@ class Window(QMainWindow):
             field_value = field_obj.isChecked()
 
             if field_name == "linear_base":
-                self.linear_base = field_value
+                self.__linear_base = field_value
 
             else:
                 logger.warning(f"Unimplemented QRadioButton: {field_name}. Value: {field_value}")
@@ -173,37 +195,50 @@ class Window(QMainWindow):
             logger.warning(f"Unimplemented QObject: {field_name}. Type: {type(field_obj)}")
 
     def launch_robot_control(self) -> None:
-        robot = Robot(link_lengths=self.link_lengths,
-                      ik_solver=self.ik_solver,
-                      trajectory_generator=self.trajectory_generator,
-                      joint_configuration=self.joint_configuration,
-                      robot_base_radius=self.robot_base_radius,
-                      linear_base=self.linear_base)
+        """Create a robot object and launch the robot control window."""
+        robot = Robot(link_lengths=self.__link_lengths,
+                      ik_solver=self.__ik_solver,
+                      trajectory_generator=self.__trajectory_generator,
+                      joint_configuration=self.__joint_configuration,
+                      robot_base_radius=self.__robot_base_radius,
+                      linear_base=self.__linear_base)
         control_window = ControlWindow(robot)
         control_window.show()
 
 
 class ControlWindow(QWidget):
-    def __init__(self, robot) -> None:
+    """A control window to interact with the robotic manipulator."""
+
+    def __init__(self, robot: Robot) -> None:
+        """Initialise the control window to interact with the robot object.
+
+        Args:
+            robot: An initialised Robot object.
+        """
         super().__init__()
-        self.robot = robot
-        self.n_arm_joints = len(self.robot.link_lengths) - 1 if self.robot.linear_base else len(self.robot.link_lengths)
-        self.fk_joint_targets = [0.0] * self.n_arm_joints
-        self.ik_target_position = [0.0, 0.0]
-        self.ik_target_orientation = None
-        self.mirror = False
-        self.canvas = None
+        self.__robot = robot
+        n_arm_joints = self.__robot.n_links - 1 if self.__robot.linear_base else self.__robot.n_links
+        self.__fk_joint_targets = [0.0] * n_arm_joints
+        self.__ik_target_position = [0.0, 0.0]
+        self.__ik_target_orientation = None
+        self.__mirror = False
+        self.__canvas = None
 
         # Setting up timer to update GUI
-        self.timer = QTimer()
-        self.timer.setInterval(100)
-        self.timer.timeout.connect(self._update_canvas_dynamic)
-        self.animation_func = None  # Method to animate trajectory (IK or FK)
-        self.traj = []  # List of setpoints to traverse for active trajectory
+        self.__timer = QTimer()
+        self.__timer.setInterval(100)
+        self.__timer.timeout.connect(self._update_canvas_dynamic)
+        self.__animation_func = None  # Method to animate trajectory (IK or FK)
+        self.__traj = []  # List of setpoints to traverse for active trajectory
 
-        self._create_window()
+        self._create_window(n_arm_joints=n_arm_joints)
 
-    def _create_window(self) -> None:
+    def _create_window(self, n_arm_joints: int) -> None:
+        """Create the window with all the necessary QWidgets.
+
+        Args:
+            n_arm_joints: The number of joints in the articulated arm of the robot.
+        """
         main_layout = QHBoxLayout()
         layout = QVBoxLayout()
         self.setLayout(main_layout)
@@ -219,7 +254,7 @@ class ControlWindow(QWidget):
 
         fk_form_layout = QFormLayout()
         fk_data_fields = {}
-        for joint_idx in range(self.n_arm_joints):
+        for joint_idx in range(n_arm_joints):
             spinbox = QDoubleSpinBox()
             spinbox.setRange(-3.14, 3.14)
             spinbox.setSingleStep(0.01)
@@ -263,46 +298,72 @@ class ControlWindow(QWidget):
         self._connect_signals(fk_data_fields, ik_data_fields, buttons)
 
     def _create_visual_canvas(self, layout: QBoxLayout) -> None:
-        self.canvas = VisualCanvas(self)
-        layout.addWidget(self.canvas)
+        """Create the Qt visual canvas to plot the robot onto.
+
+        Args:
+            layout: The main window QBoxLayout.
+        """
+        self.__canvas = VisualCanvas(self)
+        layout.addWidget(self.__canvas)
 
         # Allowing click commands to send IK to mouse click
-        self.canvas.mpl_connect('button_press_event', self.on_click)
+        self.__canvas.mpl_connect('button_press_event', self._on_click)
 
         # Start QTimer to update visual canvas
-        self.timer.start()
+        self.__timer.start()
 
-    def on_click(self, event) -> None:
+    def _on_click(self, event) -> None:
+        """Handle mouse click events on the Qt Canvas.
+
+        Args:
+            event: The Qt mouse event.
+        """
         if event.button == MouseButton.LEFT:
-            self.ik_target_position = [event.xdata/1000.0, event.ydata/1000.0]
-            logger.debug(f"Click event received. Target: {self.ik_target_position}")
-            self.get_traj(move_type=MoveType.CARTESIAN,
-                          target_position=self.ik_target_position,
-                          target_orientation=self.ik_target_orientation)
+            self.__ik_target_position = [event.xdata/1000.0, event.ydata/1000.0]
+            logger.debug(f"Click event received. Target: {self.__ik_target_position}")
+            self._get_traj(move_type=MoveType.CARTESIAN, target_position=self.__ik_target_position,
+                           target_orientation=self.__ik_target_orientation)
 
         elif event.button == MouseButton.RIGHT:
             logger.warning("Context menu to be implemented")  # TODO implement context menu
 
     # TODO implement click and drag
     def _update_canvas_dynamic(self) -> None:
-        if len(self.traj) != 0:
-            while len(self.traj) > 0:
-                config = self.traj.pop(0)
-                self.animation_func(config)
+        """Update the Qt Canvas with the new robot state."""
+        if len(self.__traj) != 0:
+            while len(self.__traj) > 0:
+                config = self.__traj.pop(0)
+                self.__animation_func(config)
             logger.info("Trajectory complete.")
-            logger.info(f"Final joint configuration: {self.robot.joint_configuration}")
-            logger.info(f"Final vertices: {self.robot.vertices}")
+            logger.info(f"Final joint configuration: {self.__robot.joint_configuration}")
+            logger.info(f"Final vertices: {self.__robot.vertices}")
         else:
-            self.robot._plot(ax=self.canvas.axes, canvas=self.canvas, mirror=self.mirror)
+            self.__robot._plot(ax=self.__canvas.axes, canvas=self.__canvas, mirror=self.__mirror)
 
-    def get_traj(self, move_type: MoveType, **kwargs) -> None:
+    def _get_traj(self, move_type: MoveType, **kwargs) -> None:
+        """Calculate the trajectory in the specified coordinate space.
+
+        Wrapper function around the robot.get_trajectory() method. Also sets the animation_func attribute.
+
+        Args:
+            move_type: MoveType enum specifying the coordinate space of the motion command.
+            **kwargs: Additional keyword arguments relevant to the specified motion type. Accepts target_position and
+                target_orientation for MoveType.CARTESIAN, and accepts target_configuration for MoveType.JOINT.
+        """
         if move_type == MoveType.JOINT:
-            self.animation_func = partial(self.robot.move_fk_animated, ax=self.canvas.axes, canvas=self.canvas)
+            self.__animation_func = partial(self.__robot.move_fk_animated, ax=self.__canvas.axes, canvas=self.__canvas)
         elif move_type == MoveType.CARTESIAN:
-            self.animation_func = partial(self.robot.move_ik_animated, ax=self.canvas.axes, canvas=self.canvas, mirror=False)
-        self.traj = self.robot.get_trajectory(move_type, **kwargs)
+            self.__animation_func = partial(self.__robot.move_ik_animated, ax=self.__canvas.axes, canvas=self.__canvas, mirror=False)
+        self.__traj = self.__robot.get_trajectory(move_type, **kwargs)
 
     def _connect_signals(self, fk_data_fields: dict, ik_data_fields: dict, buttons: dict) -> None:
+        """Connect Qt signals and slots.
+
+        Args:
+            fk_data_fields: A dictionary containing the QWidgets used to specify a joint space command.
+            ik_data_fields: A dictionary containing the QWidgets used to specify a cartesian space command.
+            buttons: A dictionary containing the QPushButtons used to send joint space and cartesian space commands.
+        """
         # Processing the FK data fields
         for joint_name, joint_field_obj in fk_data_fields.items():
             process_func = partial(self._process_field, joint_name, joint_field_obj)
@@ -324,29 +385,35 @@ class ControlWindow(QWidget):
             else:
                 logger.warning(f"Unimplemented field: {field_name}")
 
-        buttons["go_fk"].clicked.connect(lambda: self.get_traj(move_type=MoveType.JOINT,
-                                                               target_configuration=self.fk_joint_targets))
+        buttons["go_fk"].clicked.connect(lambda: self._get_traj(move_type=MoveType.JOINT,
+                                                                target_configuration=self.__fk_joint_targets))
 
-        buttons["go_ik"].clicked.connect(lambda: self.get_traj(move_type=MoveType.CARTESIAN,
-                                                               target_position=self.ik_target_position,
-                                                               target_orientation=self.ik_target_orientation))
+        buttons["go_ik"].clicked.connect(lambda: self._get_traj(move_type=MoveType.CARTESIAN,
+                                                                target_position=self.__ik_target_position,
+                                                                target_orientation=self.__ik_target_orientation))
 
     def _process_field(self, field_name: str, field_obj) -> None:
+        """Process signal from the emitting QWidget.
+
+        Args:
+            field_name: Signal emitting QWidget's name in the data fields dictionary.
+            field_obj: Signal emitting QWidget object.
+        """
         if isinstance(field_obj, QDoubleSpinBox):
             field_value = field_obj.value()
 
             if field_name == 'Target Position x':
-                self.ik_target_position[0] = field_value
+                self.__ik_target_position[0] = field_value
 
             elif field_name == 'Target Position y':
-                self.ik_target_position[1] = field_value
+                self.__ik_target_position[1] = field_value
 
             elif field_name == 'Target Orientation':
-                self.ik_target_orientation = field_value
+                self.__ik_target_orientation = field_value
 
             elif "Joint" in field_name:  # Field name = "Joint" + idx, for fk target
                 joint_idx = int(field_name[-1])  # Extracting joint idx
-                self.fk_joint_targets[joint_idx] = field_value
+                self.__fk_joint_targets[joint_idx] = field_value
 
             else:
                 logger.warning(f"Unimplemented QDoubleSpinBox: {field_name}. Value: {field_value}")
@@ -355,7 +422,7 @@ class ControlWindow(QWidget):
             field_value = field_obj.isChecked()
 
             if field_name == 'Mirror':
-                self.mirror = field_value
+                self.__mirror = field_value
                 logger.warning("Mirror functionality currently broken")
 
             else:
@@ -366,8 +433,22 @@ class ControlWindow(QWidget):
 
 
 class VisualCanvas(FigureCanvasQTAgg):
+    """FigureCanvasQTAgg object used to plot the robot state and embed into the Qt interface.
 
-    def __init__(self, parent=None, width=8, height=4, dpi=100) -> None:
+    Attributes:
+          fig: Matplotlib Figure.
+          axes: Matplotlib Axes.
+    """
+
+    def __init__(self, parent=None, width: int = 8, height: int = 4, dpi: int = 100) -> None:
+        """Initialise the VisualCanvas object.
+
+        Args:
+            parent: Parent of the canvas object.
+            width: Width of the canvas object.
+            height: Height of the canvas object.
+            dpi: Dots per inch of the canvas object.
+        """
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
         super().__init__(self.fig)
@@ -376,7 +457,7 @@ class VisualCanvas(FigureCanvasQTAgg):
 if __name__ == "__main__":
     app = QApplication([])
 
-    window = Window()
+    window = ConfigureRobotWindow()
 
     window.show()
 
