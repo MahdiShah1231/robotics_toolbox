@@ -48,7 +48,7 @@ Relevant motion type:  `MoveType.CARTESIAN`
 To send joint space commands, use the `move()` function with the following keyword arguments:  
 `robot=r` - This is the robot object created  
 `move_type = MoveType.CARTESIAN` - This specifies a joint space motion  
-`target_position = list[float]`  - Cartesian space target coordinates (in meters).
+`target_position = list[float]`  - Cartesian space target coordinates (in meters).  
 `target_orientation = float`  - [OPTIONAL] This will be the target orientation (in radians) to achieve. The IK will have many solutions and in most cases can reach a given target from multiple approach angles.
 This will allow you to define the angle to approach from. `target_orientation = np.pi / 2` will reach from below.  
 `mirror = bool` - [OPTIONAL] This will allow the calculation of alternative IK configurations that arise from symmetrical solutions with an "elbow" flipping either side of the symmetry line. NOTE: This feature
