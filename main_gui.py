@@ -249,8 +249,11 @@ class ControlWindow(QWidget):
 
         buttons = {
             "go_fk": QPushButton("Go (FK)"),
-            "go_ik": QPushButton("Go (IK)")
+            "go_ik": QPushButton("Go (IK)"),
+            "enable_ik_orientation": QPushButton("Enable IK target orientation")
         }
+        buttons["enable_ik_orientation"].setCheckable(True)
+        buttons["enable_ik_orientation"].setChecked(False)
 
         fk_form_layout = QFormLayout()
         fk_data_fields = {}
@@ -277,6 +280,7 @@ class ControlWindow(QWidget):
         ik_data_fields["Target Orientation"].setRange(-3.14, 3.14)
         ik_data_fields["Target Orientation"].setSingleStep(0.1)
         ik_data_fields["Target Orientation"].setSuffix(" rad")
+        ik_data_fields["Target Orientation"].setEnabled(False)
 
         target_position_layout = QHBoxLayout()
         target_position_layout.addWidget(ik_data_fields["Target Position x"])
@@ -290,6 +294,7 @@ class ControlWindow(QWidget):
         layout.addWidget(buttons["go_fk"])
         layout.addStretch(50)
         layout.addLayout(ik_form_layout)
+        layout.addWidget(buttons["enable_ik_orientation"])
         layout.addWidget(buttons["go_ik"])
         layout.addStretch(250)
         main_layout.addStretch(100)
@@ -391,6 +396,30 @@ class ControlWindow(QWidget):
         buttons["go_ik"].clicked.connect(lambda: self._get_traj(move_type=MoveType.CARTESIAN,
                                                                 target_position=self.__ik_target_position,
                                                                 target_orientation=self.__ik_target_orientation))
+
+        buttons["enable_ik_orientation"].clicked.connect(
+            lambda: self._toggle_ik_target_orientation(ik_data_fields["Target Orientation"],
+                                                       button=buttons["enable_ik_orientation"])
+        )
+
+    def _toggle_ik_target_orientation(self, target_orientation_field: QDoubleSpinBox, button: QPushButton):
+        """Toggle the ik target orientation.
+
+        This also enables/disables the target orientation field. The button must be toggled to edit the field.
+        If the button is toggled, the target orientation is sent, otherwise the IK will approach at any angle.
+
+        Args:
+            target_orientation_field: The QDoubleSpinBox containing the IK target orientation information.
+            button: The QPushButton emitting the signal.
+        """
+        if button.isChecked():
+            # Target orientation is enabled.
+            target_orientation_field.setEnabled(True)
+            self.__ik_target_orientation = target_orientation_field.value()
+        else:
+            # Target orientation is disabled.
+            target_orientation_field.setEnabled(False)
+            self.__ik_target_orientation = None
 
     def _process_field(self, field_name: str, field_obj) -> None:
         """Process signal from the emitting QWidget.
