@@ -4,8 +4,9 @@ from functools import partial
 
 import matplotlib
 from PyQt5.QtCore import QTimer
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QComboBox, QFormLayout, QRadioButton, QVBoxLayout, \
-    QPushButton, QMainWindow, QToolBar, QHBoxLayout, QBoxLayout, QDoubleSpinBox
+    QPushButton, QMainWindow, QHBoxLayout, QBoxLayout, QDoubleSpinBox, QLabel
 from matplotlib.backend_bases import MouseButton
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
@@ -39,12 +40,11 @@ class ConfigureRobotWindow(QMainWindow):
 
         self._create_central_widget()
         self._create_menu()
-        self._create_toolbar()
 
     def _create_central_widget(self) -> None:
         """Create the central widget with all the entry fields."""
         window = QWidget()
-        window.setGeometry(100, 100, 280, 80)
+        self.setFixedSize(400, 260)
         main_window_layout = QVBoxLayout()
         create_robot_button = QPushButton("Create Robot")
         window.setLayout(main_window_layout)
@@ -67,6 +67,8 @@ class ConfigureRobotWindow(QMainWindow):
         data_fields["ik_solver"].setToolTip("The inverse kinematics solver for cartesian space control.")
         data_fields["trajectory_generator"].setToolTip("The trajectory generator for "
                                                        "animated motions between waypoints.")
+        data_fields["linear_base"].setToolTip("The active state for a linear rail to allow horizontal displacement"
+                                              " of the robot base.")
 
         # Configuring QWidgets
         data_fields["link_lengths"].setText(','.join(str(val) for val in self.__link_lengths))  # Setting defaults
@@ -96,13 +98,6 @@ class ConfigureRobotWindow(QMainWindow):
         # TODO implement features
         menu = self.menuBar().addMenu("&Menu")
         menu.addAction("&Exit", self.close)
-
-    def _create_toolbar(self) -> None:
-        """Create a toolbar"""
-        # TODO implement features
-        tools = QToolBar()
-        tools.addAction("Exit", self.close)
-        self.addToolBar(tools)
 
     def _connect_signals(self, data_fields: dict, button: QPushButton) -> None:
         """Connect Qt signals and slots.
@@ -243,7 +238,6 @@ class ControlWindow(QWidget):
         layout = QVBoxLayout()
         self.setLayout(main_layout)
         self.setWindowTitle("ControlPanel")
-        self.setGeometry(750, 750, 750, 750)
 
         self._create_visual_canvas(main_layout)
 
@@ -264,6 +258,7 @@ class ControlWindow(QWidget):
             spinbox.setSuffix(" rad")
             fk_data_fields[f"Joint {joint_idx}"] = spinbox
             fk_form_layout.addRow(f"Joint {joint_idx}:", fk_data_fields[f"Joint {joint_idx}"])
+        fk_form_layout.addRow(buttons["go_fk"])
 
         ik_form_layout = QFormLayout()
         ik_data_fields = {
@@ -289,17 +284,23 @@ class ControlWindow(QWidget):
         ik_form_layout.addRow("Target Position (x,y):", target_position_layout)
         ik_form_layout.addRow("Target Orientation:", ik_data_fields["Target Orientation"])
         ik_form_layout.addRow("Mirror:", ik_data_fields["Mirror"])
+        ik_form_layout.addRow(buttons["enable_ik_orientation"])
+        ik_form_layout.addRow(buttons["go_ik"])
 
+        coordinate_space_heading_font = QFont()
+        coordinate_space_heading_font.setBold(True)
+        joint_space_label = QLabel("Joint space commands:")
+        joint_space_label.setFont(coordinate_space_heading_font)
+        layout.addWidget(joint_space_label)
         layout.addLayout(fk_form_layout)
-        layout.addWidget(buttons["go_fk"])
         layout.addStretch(50)
+        cartesian_space_label = QLabel("Cartesian space commands:")
+        cartesian_space_label.setFont(coordinate_space_heading_font)
+        layout.addWidget(cartesian_space_label)
         layout.addLayout(ik_form_layout)
-        layout.addWidget(buttons["enable_ik_orientation"])
-        layout.addWidget(buttons["go_ik"])
         layout.addStretch(250)
-        main_layout.addStretch(100)
         main_layout.addLayout(layout)
-
+        self.setMinimumSize(1000, 600)
         self._connect_signals(fk_data_fields, ik_data_fields, buttons)
 
     def _create_visual_canvas(self, layout: QBoxLayout) -> None:
@@ -309,7 +310,7 @@ class ControlWindow(QWidget):
             layout: The main window QBoxLayout.
         """
         self.__canvas = VisualCanvas(self)
-        layout.addWidget(self.__canvas)
+        layout.addWidget(self.__canvas, stretch=1)
 
         # Allowing click commands to send IK to mouse click
         self.__canvas.mpl_connect('button_press_event', self._on_click)
@@ -469,7 +470,7 @@ class VisualCanvas(FigureCanvasQTAgg):
           axes: Matplotlib Axes.
     """
 
-    def __init__(self, parent=None, width: int = 8, height: int = 4, dpi: int = 100) -> None:
+    def __init__(self, parent=None, width: int = 8, height: int = 8, dpi: int = 100) -> None:
         """Initialise the VisualCanvas object.
 
         Args:
