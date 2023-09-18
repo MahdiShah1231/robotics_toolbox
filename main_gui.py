@@ -481,6 +481,7 @@ class VisualCanvas(FigureCanvasQTAgg):
         """
         self.fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = self.fig.add_subplot(111)
+        self.parent = parent
         super().__init__(self.fig)
 
 
