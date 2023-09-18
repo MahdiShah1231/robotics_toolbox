@@ -19,7 +19,7 @@ class TrajectoryBase(ABC):
     def setup_trajectory(self,
                          waypoints: tuple[float, float],
                          time: float = 3.0,
-                         frequency: int = 100) -> None:
+                         frequency: int = 60) -> None:
         """Set up the trajectory waypoints.
 
         Args:
